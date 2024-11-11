@@ -26,3 +26,9 @@ go.work.sum
 
 # Ignore JetBrains GoLand
 .idea
+
+# Ignore Visual Studio 2022
+decoder/.vs
+decoder/decoder
+decoder/Release
+decoder/x64
