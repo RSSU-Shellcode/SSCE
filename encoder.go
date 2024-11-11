@@ -47,8 +47,12 @@ func NewEncoder(arch int) (*Encoder, error) {
 // Encode is used to encode input shellcode to a unique shellcode.
 func (e *Encoder) Encode(shellcode []byte) ([]byte, error) {
 	output := make([]byte, 0, 512+len(shellcode))
-	prefixJMP := e.genGarbageJumpShort()
-	output = append(output, prefixJMP...)
+	output = append(output, e.genGarbageJumpShort(64)...)
+	output = append(output, e.saveContext()...)
+
+	restore := e.restoreContext()
+
+	output = append(output, restore...)
 	output = append(output, shellcode...)
 	return output, nil
 }
