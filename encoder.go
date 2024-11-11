@@ -14,6 +14,8 @@ type Encoder struct {
 
 	engine *keystone.Engine
 	rand   *rand.Rand
+
+	contextSeq []int
 }
 
 // NewEncoder is used to create a simple shellcode encoder.
