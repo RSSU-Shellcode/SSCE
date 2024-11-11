@@ -11,9 +11,9 @@ var (
 		0x4C, 0x8B, 0xD9, //                  mov r11,rcx
 		0xB3, 0xFF, //                        mov bl,FF
 		0x85, 0xD2, //                        test edx,edx
-		0x74, 0x27, //                        je decoder.7FF67A5310B8
+		0x74, 0x27, //                        je label0
 		0x8B, 0xD2, //                        mov edx,edx
-		0x41, 0x8A, 0x0B, //                  mov cl,byte ptr ds:[r11]
+		0x41, 0x8A, 0x0B, //                  [label1] mov cl,byte ptr ds:[r11]
 		0x41, 0x8D, 0x42, 0x01, //            lea eax,qword ptr ds:[r10+1]
 		0x43, 0x32, 0x0C, 0x02, //            xor cl,byte ptr ds:[r10+r8]
 		0x32, 0xCB, //                        xor cl,bl
@@ -24,8 +24,8 @@ var (
 		0x45, 0x1B, 0xD2, //                  sbb r10d,r10d
 		0x44, 0x23, 0xD0, //                  and r10d,eax
 		0x48, 0x83, 0xEA, 0x01, //            sub rdx,1
-		0x75, 0xDB, //                        jne decoder.7FF67A531093
-		0x48, 0x8B, 0x5C, 0x24, 0x08, //      mov rbx,qword ptr ss:[rsp+8]
+		0x75, 0xDB, //                        jne label1
+		0x48, 0x8B, 0x5C, 0x24, 0x08, //      [label0] mov rbx,qword ptr ss:[rsp+8]
 		0xC3, //                              ret
 	}
 )
@@ -49,13 +49,14 @@ func (e *Encoder) genDecoderCleaner() []byte {
 	return builder
 }
 
-func encryptShellcode(sc, key []byte) {
+func encrypt(data, key []byte) []byte {
+	output := make([]byte, len(data))
 	last := byte(0xFF)
 	var keyIdx = 0
-	for i := 0; i < len(sc); i++ {
-		b := sc[i] ^ last
+	for i := 0; i < len(data); i++ {
+		b := data[i] ^ last
 		b ^= key[keyIdx]
-		sc[i] = b
+		output[i] = b
 		last = b
 		// update key index
 		keyIdx++
@@ -63,4 +64,5 @@ func encryptShellcode(sc, key []byte) {
 			keyIdx = 0
 		}
 	}
+	return output
 }

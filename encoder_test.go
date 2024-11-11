@@ -15,10 +15,6 @@ import (
 
 func TestEncoder(t *testing.T) {
 	t.Run("x64", func(t *testing.T) {
-		if runtime.GOARCH != "amd64" {
-			return
-		}
-
 		encoder, err := NewEncoder(64)
 		require.NoError(t, err)
 
@@ -32,20 +28,20 @@ func TestEncoder(t *testing.T) {
 		}
 		shellcode, err = encoder.Encode(shellcode)
 		require.NoError(t, err)
+		spew.Dump(shellcode)
 
 		err = encoder.Close()
 		require.NoError(t, err)
 
+		if runtime.GOARCH != "amd64" {
+			return
+		}
 		addr := loadShellcode(t, shellcode)
 		ret, _, _ := syscall.SyscallN(addr)
 		require.Equal(t, 0x64, int(ret))
 	})
 
 	t.Run("x86", func(t *testing.T) {
-		if runtime.GOARCH != "386" {
-			return
-		}
-
 		encoder, err := NewEncoder(32)
 		require.NoError(t, err)
 
@@ -59,10 +55,14 @@ func TestEncoder(t *testing.T) {
 		}
 		shellcode, err = encoder.Encode(shellcode)
 		require.NoError(t, err)
+		spew.Dump(shellcode)
 
 		err = encoder.Close()
 		require.NoError(t, err)
 
+		if runtime.GOARCH != "386" {
+			return
+		}
 		addr := loadShellcode(t, shellcode)
 		ret, _, _ := syscall.SyscallN(addr)
 		require.Equal(t, 0x86, int(ret))
@@ -70,7 +70,6 @@ func TestEncoder(t *testing.T) {
 }
 
 func loadShellcode(t *testing.T, sc []byte) uintptr {
-	spew.Dump(sc)
 	size := uintptr(len(sc))
 	mType := uint32(windows.MEM_COMMIT | windows.MEM_RESERVE)
 	mProtect := uint32(windows.PAGE_EXECUTE_READWRITE)
