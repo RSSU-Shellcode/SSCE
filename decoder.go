@@ -1,33 +1,7 @@
 package ssce
 
-var (
-	x86Decoder = []byte{
-		0x00,
-	}
-
-	x64Decoder = []byte{
-		0x48, 0x89, 0x5C, 0x24, 0x08, //      mov qword ptr ss:[rsp+8],rbx
-		0x45, 0x33, 0xD2, //                  xor r10d,r10d
-		0x4C, 0x8B, 0xD9, //                  mov r11,rcx
-		0xB3, 0xFF, //                        mov bl,FF
-		0x85, 0xD2, //                        test edx,edx
-		0x74, 0x27, //                        je label0
-		0x8B, 0xD2, //                        mov edx,edx
-		0x41, 0x8A, 0x0B, //                  [label1] mov cl,byte ptr ds:[r11]
-		0x41, 0x8D, 0x42, 0x01, //            lea eax,qword ptr ds:[r10+1]
-		0x43, 0x32, 0x0C, 0x02, //            xor cl,byte ptr ds:[r10+r8]
-		0x32, 0xCB, //                        xor cl,bl
-		0x41, 0x8A, 0x1B, //                  mov bl,byte ptr ds:[r11]
-		0x41, 0x88, 0x0B, //                  mov byte ptr ds:[r11],cl
-		0x49, 0xFF, 0xC3, //                  inc r11
-		0x41, 0x3B, 0xC1, //                  cmp eax,r9d
-		0x45, 0x1B, 0xD2, //                  sbb r10d,r10d
-		0x44, 0x23, 0xD0, //                  and r10d,eax
-		0x48, 0x83, 0xEA, 0x01, //            sub rdx,1
-		0x75, 0xDB, //                        jne label1
-		0x48, 0x8B, 0x5C, 0x24, 0x08, //      [label0] mov rbx,qword ptr ss:[rsp+8]
-		0xC3, //                              ret
-	}
+import (
+	"encoding/binary"
 )
 
 func (e *Encoder) genDecoderBuilder() []byte {
@@ -38,31 +12,73 @@ func (e *Encoder) genDecoderBuilder() []byte {
 	case 64:
 		decoder = x64Decoder
 	}
-
 	builder := make([]byte, 0, 512)
 	builder = append(builder, decoder...)
 	return builder
 }
 
-func (e *Encoder) genDecoderCleaner() []byte {
+func (e *Encoder) genCleanBuilder() []byte {
 	builder := make([]byte, 0, 64)
 	return builder
 }
 
+func (e *Encoder) genDecoderStub() []byte {
+	var decoder []byte
+	switch e.arch {
+	case 32:
+		decoder = x86Decoder
+	case 64:
+		decoder = x64Decoder
+	}
+	return e.randBytes(len(decoder))
+}
+
+func (e *Encoder) genCleanerStub() []byte {
+	var cleaner []byte
+	switch e.arch {
+	case 32:
+		cleaner = x86Cleaner
+	case 64:
+		cleaner = x64Cleaner
+	}
+	return e.randBytes(len(cleaner))
+}
+
 func encrypt(data, key []byte) []byte {
 	output := make([]byte, len(data))
-	last := byte(0xFF)
-	var keyIdx = 0
+	ctr := binary.LittleEndian.Uint32(key[4:])
+	last := binary.LittleEndian.Uint32(key[:4])
+	keyIdx := last % 32
 	for i := 0; i < len(data); i++ {
-		b := data[i] ^ last
+		b := data[i]
+		b ^= byte(last)
+		b = rol(b, uint8(last%8))
 		b ^= key[keyIdx]
+		b += byte(ctr ^ last)
+		b = ror(b, uint8(last%8))
 		output[i] = b
-		last = b
 		// update key index
 		keyIdx++
-		if keyIdx >= len(key) {
+		if keyIdx >= uint32(len(key)) {
 			keyIdx = 0
 		}
+		ctr++
+		last = xorShift32(last)
 	}
 	return output
+}
+
+func xorShift32(seed uint32) uint32 {
+	seed ^= seed << 13
+	seed ^= seed >> 17
+	seed ^= seed << 5
+	return seed
+}
+
+func ror(value byte, bits uint8) byte {
+	return value>>bits | value<<(8-bits)
+}
+
+func rol(value byte, bits uint8) byte {
+	return value<<bits | value>>(8-bits)
 }
