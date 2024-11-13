@@ -51,6 +51,41 @@ func NewEncoder(arch int) (*Encoder, error) {
 
 // Encode is used to encode input shellcode to a unique shellcode.
 func (e *Encoder) Encode(shellcode []byte) ([]byte, error) {
+	// encode the raw shellcode
+	output, err := e.encode(shellcode)
+	if err != nil {
+		return nil, err
+	}
+
+	// iterate the encoding of the pre-decoder and part of the shellcode
+	decoder := len(output) - e.rand.Intn(len(shellcode))
+	times := 4 + e.rand.Intn(8)
+	for i := 0; i < times; i++ {
+		input := output[:decoder]
+		newOutput, err := e.encode(input)
+		if err != nil {
+			return nil, err
+		}
+		output = append(newOutput, output[decoder:]...)
+		decoder = len(newOutput) - e.rand.Intn(len(input))
+	}
+
+	// padding garbage at the tail
+	times = 4 + e.rand.Intn(16)
+	for i := 0; i < times; i++ {
+		var garbage []byte
+		switch e.rand.Intn(3) {
+		case 0:
+			garbage = e.randBytes(e.rand.Intn(24))
+		case 1, 2:
+			garbage = e.randString(e.rand.Intn(16))
+		}
+		output = append(output, garbage...)
+	}
+	return output, nil
+}
+
+func (e *Encoder) encode(shellcode []byte) ([]byte, error) {
 	tpl, err := template.New("asm_src").Funcs(template.FuncMap{
 		"db":  toDB,
 		"hex": toHex,
@@ -82,7 +117,6 @@ func (e *Encoder) Encode(shellcode []byte) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to build assembly source: %s", err)
 	}
-
 	inst, err := e.engine.Assemble(buf.String(), 0)
 	if err != nil {
 		return nil, err
