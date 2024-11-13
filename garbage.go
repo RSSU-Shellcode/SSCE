@@ -1,7 +1,7 @@
 package ssce
 
 func (e *Encoder) genGarbageInst() []byte {
-	switch e.rand.Intn(1) {
+	switch e.rand.Intn(2) {
 	case 0:
 		return nil
 	case 1:
@@ -20,7 +20,13 @@ func (e *Encoder) genGarbageJumpShort(max int) []byte {
 	offset := 4 + e.rand.Intn(max-4)
 	jmp = append(jmp, 0xEB, byte(offset))
 	// padding garbage data
-	inst := e.randBytes(offset)
+	var inst []byte
+	switch e.rand.Intn(3) {
+	case 0:
+		inst = e.randBytes(offset)
+	case 1, 2:
+		inst = e.randString(offset)
+	}
 	jmp = append(jmp, inst...)
 	return jmp
 }
@@ -28,5 +34,13 @@ func (e *Encoder) genGarbageJumpShort(max int) []byte {
 func (e *Encoder) randBytes(n int) []byte {
 	buf := make([]byte, n)
 	_, _ = e.rand.Read(buf)
+	return buf
+}
+
+func (e *Encoder) randString(n int) []byte {
+	buf := make([]byte, n)
+	for i := 0; i < n; i++ {
+		buf[i] = byte(32 + e.rand.Intn(95)) // [32, 126]
+	}
 	return buf
 }
