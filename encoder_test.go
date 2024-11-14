@@ -3,6 +3,7 @@
 package ssce
 
 import (
+	"os"
 	"runtime"
 	"syscall"
 	"testing"
@@ -13,58 +14,71 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+var encoder *Encoder
+
+func TestMain(m *testing.M) {
+	var err error
+	encoder, err = NewEncoder()
+	if err != nil {
+		panic(err)
+	}
+
+	code := m.Run()
+
+	err = encoder.Close()
+	if err != nil {
+		panic(err)
+	}
+
+	os.Exit(code)
+}
+
+func TestEncoderN(t *testing.T) {
+	for i := 0; i < 20; i++ {
+		TestEncoder(t)
+	}
+}
+
 func TestEncoder(t *testing.T) {
 	t.Run("x64", func(t *testing.T) {
-		encoder, err := NewEncoder(64)
+		asm := ".code64\n"
+		asm += "mov qword ptr [rcx], 0x64\n"
+		asm += "mov rax, 0x64\n"
+		asm += "ret\n"
+		shellcode, err := encoder.engine64.Assemble(asm, 0)
 		require.NoError(t, err)
 
-		// xor eax, eax
-		// add rax, 0x64
-		// ret
-		shellcode := []byte{
-			0x31, 0xC0,
-			0x48, 0x83, 0xC0, 0x64,
-			0xC3,
-		}
-		shellcode, err = encoder.Encode(shellcode)
+		shellcode, err = encoder.Encode(shellcode, 64, nil)
 		require.NoError(t, err)
 		spew.Dump(shellcode)
-
-		err = encoder.Close()
-		require.NoError(t, err)
 
 		if runtime.GOARCH != "amd64" {
 			return
 		}
 		addr := loadShellcode(t, shellcode)
-		ret, _, _ := syscall.SyscallN(addr)
+		var val int
+		ret, _, _ := syscall.SyscallN(addr, (uintptr)(unsafe.Pointer(&val)))
+		require.Equal(t, 0x64, val)
 		require.Equal(t, 0x64, int(ret))
 	})
 
 	t.Run("x86", func(t *testing.T) {
-		encoder, err := NewEncoder(32)
+		asm := ".code32\n"
+		asm += "mov eax, 0x86\n"
+		asm += "ret\n"
+		shellcode, err := encoder.engine64.Assemble(asm, 0)
 		require.NoError(t, err)
 
-		// xor eax, eax
-		// add eax, 0x86
-		// ret
-		shellcode := []byte{
-			0x31, 0xC0,
-			0x05, 0x86, 0x00, 0x00, 0x00,
-			0xC3,
-		}
-		shellcode, err = encoder.Encode(shellcode)
+		shellcode, err = encoder.Encode(shellcode, 32, nil)
 		require.NoError(t, err)
 		spew.Dump(shellcode)
-
-		err = encoder.Close()
-		require.NoError(t, err)
 
 		if runtime.GOARCH != "386" {
 			return
 		}
 		addr := loadShellcode(t, shellcode)
-		ret, _, _ := syscall.SyscallN(addr)
+		var val int
+		ret, _, _ := syscall.SyscallN(addr, (uintptr)(unsafe.Pointer(&val)))
 		require.Equal(t, 0x86, int(ret))
 	})
 }
