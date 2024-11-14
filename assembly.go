@@ -10,26 +10,44 @@ var x64asm = `
 .code64
 
 entry:
-  {{db .JumpShort}}                          // jump short
-  {{db .SaveContext}}                        // save context
+  {{db .JumpShort}}                          // random jump short
+  {{db .SaveContext}}                        // save all registers
+
+  push rbx                         {{igi}}   // store rbx for save entry address
+  push rbp                         {{igi}}   // store rbp for save stack address
   mov rbp, rsp                     {{igi}}   // create new stack frame
   and rsp, 0xFFFFFFFFFFFFFFF0      {{igi}}   // ensure stack is 16 bytes aligned
-  
+
+  // save arguments for test
+  push rcx                         {{igi}}
+  push rdx                         {{igi}}
+  push r8                          {{igi}}
+  push r9                          {{igi}}
+
   {{igi}}      {{igi}}
   call calc_entry_addr
   flag_CEA:
   {{igi}}      {{igi}}
 
   call decrypt_shellcode           {{igi}}
+  
+  // restore arguments for test
+  pop r9                           {{igi}}
+  pop r8                           {{igi}}
+  pop rdx                          {{igi}}
+  pop rcx                          {{igi}}
 
-  sub rsp, 0x80                    {{igi}}
-  call shellcode_stub              {{igi}}
-  add rsp, 0x80                    {{igi}}
+  sub rsp, 0x80                    {{igi}}   // reserve stack
+  call shellcode_stub              {{igi}}   // call the shellcode
+  add rsp, 0x80                    {{igi}}   // restore stack
 
-  mov rsp, rbp                     {{igi}}   // restore stack
-  {{db .RestoreContext}}                     // restore context
+  mov rsp, rbp                     {{igi}}   // restore stack address
+  pop rbp                          {{igi}}   // restore rbp
+  pop rbx                          {{igi}}   // restore rbx
+  {{db .RestoreContext}}                     // restore all registers
   ret                              {{igi}}
   
+// calculate the shellcode entry address.
 calc_entry_addr:
   pop rax                          {{igi}}   // get return address
   mov rbx, rax                     {{igi}}   // calculate entry address
@@ -57,7 +75,7 @@ crypto_key:
   {{db .CryptoKey}}                {{igi}}
 
 shellcode_stub:
-  {{db .Shellcode}}                {{igi}}
+  {{db .Shellcode}}
 `
 
 type asmContext struct {
@@ -73,6 +91,9 @@ type asmContext struct {
 }
 
 func toDB(b []byte) string {
+	if len(b) == 0 {
+		return ""
+	}
 	builder := strings.Builder{}
 	builder.WriteString(".byte ")
 	for i := 0; i < len(b); i++ {
