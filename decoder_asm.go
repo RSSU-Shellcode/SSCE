@@ -4,7 +4,7 @@ package ssce
 
 var (
 	x86Decoder = []byte{
-		0x00,
+		0xC3,
 	}
 
 	x64Decoder = []byte{
@@ -74,10 +74,10 @@ var (
 	}
 
 	x86Cleaner = []byte{
-		0x00,
+		0xC3,
 	}
 
 	x64Cleaner = []byte{
-		0x00,
+		0xC3,
 	}
 )

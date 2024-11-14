@@ -4,9 +4,9 @@ import (
 	"encoding/binary"
 )
 
-func (e *Encoder) genDecoderBuilder() []byte {
+func (e *Encoder) decoderBuilder(arch int) []byte {
 	var decoder []byte
-	switch e.arch {
+	switch arch {
 	case 32:
 		decoder = x86Decoder
 	case 64:
@@ -17,14 +17,22 @@ func (e *Encoder) genDecoderBuilder() []byte {
 	return builder
 }
 
-func (e *Encoder) genCleanBuilder() []byte {
-	builder := make([]byte, 0, 64)
+func (e *Encoder) cleanerBuilder(arch int) []byte {
+	var cleaner []byte
+	switch arch {
+	case 32:
+		cleaner = x86Cleaner
+	case 64:
+		cleaner = x64Cleaner
+	}
+	builder := make([]byte, 0, 512)
+	builder = append(builder, cleaner...)
 	return builder
 }
 
-func (e *Encoder) genDecoderStub() []byte {
+func (e *Encoder) decoderStub(arch int) []byte {
 	var decoder []byte
-	switch e.arch {
+	switch arch {
 	case 32:
 		decoder = x86Decoder
 	case 64:
@@ -33,9 +41,9 @@ func (e *Encoder) genDecoderStub() []byte {
 	return e.randBytes(len(decoder))
 }
 
-func (e *Encoder) genCleanerStub() []byte {
+func (e *Encoder) cleanerStub(arch int) []byte {
 	var cleaner []byte
-	switch e.arch {
+	switch arch {
 	case 32:
 		cleaner = x86Cleaner
 	case 64:
@@ -43,6 +51,8 @@ func (e *Encoder) genCleanerStub() []byte {
 	}
 	return e.randBytes(len(cleaner))
 }
+
+// TODO add encrypt64
 
 func encrypt(data, key []byte) []byte {
 	output := make([]byte, len(data))
@@ -68,6 +78,7 @@ func encrypt(data, key []byte) []byte {
 	return output
 }
 
+// TODO add xorShift32 and xorShift64
 func xorShift32(seed uint32) uint32 {
 	seed ^= seed << 13
 	seed ^= seed >> 17
