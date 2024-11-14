@@ -22,9 +22,9 @@ var (
 	}
 )
 
-func (e *Encoder) saveContext() []byte {
+func (e *Encoder) saveContext(arch int) []byte {
 	var save [][]byte
-	switch e.arch {
+	switch arch {
 	case 32:
 		save = x86SaveContext
 	case 64:
@@ -34,14 +34,14 @@ func (e *Encoder) saveContext() []byte {
 	inst := make([]byte, 0, 256)
 	for i := 0; i < len(save); i++ {
 		inst = append(inst, save[e.contextSeq[i]]...)
-		inst = append(inst, e.genGarbageInst()...)
+		inst = append(inst, e.garbageInst()...)
 	}
 	return inst
 }
 
-func (e *Encoder) restoreContext() []byte {
+func (e *Encoder) restoreContext(arch int) []byte {
 	var restore [][]byte
-	switch e.arch {
+	switch arch {
 	case 32:
 		restore = x86RestoreContext
 	case 64:
@@ -50,7 +50,7 @@ func (e *Encoder) restoreContext() []byte {
 	inst := make([]byte, 0, 256)
 	for i := len(restore) - 1; i >= 0; i-- {
 		inst = append(inst, restore[e.contextSeq[i]]...)
-		inst = append(inst, e.genGarbageInst()...)
+		inst = append(inst, e.garbageInst()...)
 	}
 	return inst
 }

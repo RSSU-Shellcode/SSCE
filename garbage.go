@@ -1,18 +1,18 @@
 package ssce
 
-func (e *Encoder) genGarbageInst() []byte {
+func (e *Encoder) garbageInst() []byte {
 	switch e.rand.Intn(2) {
 	case 0:
 		return nil
 	case 1:
-		return e.genGarbageJumpShort(16)
+		return e.garbageJumpShort(16)
 	default:
 		panic("invalid garbage instruction selection")
 	}
 }
 
 // jmp short [4-128)
-func (e *Encoder) genGarbageJumpShort(max int) []byte {
+func (e *Encoder) garbageJumpShort(max int) []byte {
 	if max > 127 || max < 16 {
 		panic("max length out of range")
 	}
