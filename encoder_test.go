@@ -18,7 +18,7 @@ var encoder *Encoder
 
 func TestMain(m *testing.M) {
 	var err error
-	encoder, err = NewEncoder()
+	encoder, err = New()
 	if err != nil {
 		panic(err)
 	}
@@ -48,7 +48,11 @@ func TestEncoder(t *testing.T) {
 		shellcode, err := encoder.engine64.Assemble(asm, 0)
 		require.NoError(t, err)
 
-		shellcode, err = encoder.Encode(shellcode, 64, nil)
+		opts := &Options{
+			NoIterator: true,
+			NoGarbage:  true,
+		}
+		shellcode, err = encoder.Encode(shellcode, 64, opts)
 		require.NoError(t, err)
 		spew.Dump(shellcode)
 

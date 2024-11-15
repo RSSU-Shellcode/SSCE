@@ -1,6 +1,9 @@
 package ssce
 
 func (e *Encoder) garbageInst() []byte {
+	if e.opts.NoGarbage {
+		return nil
+	}
 	switch e.rand.Intn(2) {
 	case 0:
 		return nil
@@ -13,6 +16,9 @@ func (e *Encoder) garbageInst() []byte {
 
 // jmp short [4-128)
 func (e *Encoder) garbageJumpShort(max int) []byte {
+	if e.opts.NoGarbage {
+		return nil
+	}
 	if max > 127 || max < 16 {
 		panic("max length out of range")
 	}
