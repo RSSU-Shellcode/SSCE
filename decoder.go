@@ -4,9 +4,9 @@ import (
 	"encoding/binary"
 )
 
-func (e *Encoder) decoderBuilder(arch int) []byte {
+func (e *Encoder) decoderBuilder() []byte {
 	var decoder []byte
-	switch arch {
+	switch e.arch {
 	case 32:
 		decoder = x86Decoder
 	case 64:
@@ -17,9 +17,9 @@ func (e *Encoder) decoderBuilder(arch int) []byte {
 	return builder
 }
 
-func (e *Encoder) cleanerBuilder(arch int) []byte {
+func (e *Encoder) cleanerBuilder() []byte {
 	var cleaner []byte
-	switch arch {
+	switch e.arch {
 	case 32:
 		cleaner = x86Cleaner
 	case 64:
@@ -30,9 +30,9 @@ func (e *Encoder) cleanerBuilder(arch int) []byte {
 	return builder
 }
 
-func (e *Encoder) decoderStub(arch int) []byte {
+func (e *Encoder) decoderStub() []byte {
 	var decoder []byte
-	switch arch {
+	switch e.arch {
 	case 32:
 		decoder = x86Decoder
 	case 64:
@@ -41,9 +41,9 @@ func (e *Encoder) decoderStub(arch int) []byte {
 	return e.randBytes(len(decoder))
 }
 
-func (e *Encoder) cleanerStub(arch int) []byte {
+func (e *Encoder) cleanerStub() []byte {
 	var cleaner []byte
-	switch arch {
+	switch e.arch {
 	case 32:
 		cleaner = x86Cleaner
 	case 64:
@@ -52,13 +52,11 @@ func (e *Encoder) cleanerStub(arch int) []byte {
 	return e.randBytes(len(cleaner))
 }
 
-// TODO add encrypt64
-
-func encrypt(data, key []byte) []byte {
+func encrypt32(data, key []byte) []byte {
 	output := make([]byte, len(data))
-	ctr := binary.LittleEndian.Uint32(key[4:])
 	last := binary.LittleEndian.Uint32(key[:4])
-	keyIdx := last % 32
+	ctr := binary.LittleEndian.Uint32(key[4:])
+	keyIdx := int(last % 32)
 	for i := 0; i < len(data); i++ {
 		b := data[i]
 		b ^= byte(last)
@@ -69,7 +67,7 @@ func encrypt(data, key []byte) []byte {
 		output[i] = b
 		// update key index
 		keyIdx++
-		if keyIdx >= uint32(len(key)) {
+		if keyIdx >= len(key) {
 			keyIdx = 0
 		}
 		ctr++
@@ -78,11 +76,41 @@ func encrypt(data, key []byte) []byte {
 	return output
 }
 
-// TODO add xorShift32 and xorShift64
+func encrypt64(data, key []byte) []byte {
+	output := make([]byte, len(data))
+	last := binary.LittleEndian.Uint64(key[:8])
+	ctr := binary.LittleEndian.Uint64(key[8:])
+	keyIdx := int(last % 32)
+	for i := 0; i < len(data); i++ {
+		b := data[i]
+		b ^= byte(last)
+		b = rol(b, uint8(last%8))
+		b ^= key[keyIdx]
+		b += byte(ctr ^ last)
+		b = ror(b, uint8(last%8))
+		output[i] = b
+		// update key index
+		keyIdx++
+		if keyIdx >= len(key) {
+			keyIdx = 0
+		}
+		ctr++
+		last = xorShift64(last)
+	}
+	return output
+}
+
 func xorShift32(seed uint32) uint32 {
 	seed ^= seed << 13
 	seed ^= seed >> 17
 	seed ^= seed << 5
+	return seed
+}
+
+func xorShift64(seed uint64) uint64 {
+	seed ^= seed << 13
+	seed ^= seed >> 7
+	seed ^= seed << 17
 	return seed
 }
 
