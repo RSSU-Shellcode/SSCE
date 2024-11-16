@@ -20,6 +20,8 @@ type Encoder struct {
 	// context arguments
 	arch int
 	opts *Options
+	key  []byte
+	sc   []byte
 
 	// save and restore context
 	contextSeq []int
@@ -27,9 +29,10 @@ type Encoder struct {
 
 // Options contains options about Encode.
 type Options struct {
-	NumIter     int
+	NumIterator int
 	NumTailInst int
 	SaveContext bool
+	EraseInst   bool
 	NoIterator  bool
 	NoGarbage   bool
 }
@@ -90,7 +93,7 @@ func (e *Encoder) Encode(shellcode []byte, arch int, opts *Options) ([]byte, err
 		return nil, err
 	}
 	// iterate the encoding of the pre-decoder and part of the shellcode
-	numIter := opts.NumIter
+	numIter := opts.NumIterator
 	if numIter < 1 {
 		numIter = 4 + e.rand.Intn(8)
 	}
@@ -128,22 +131,34 @@ func (e *Encoder) Encode(shellcode []byte, arch int, opts *Options) ([]byte, err
 }
 
 func (e *Encoder) encode(shellcode []byte, arch int, opts *Options) ([]byte, error) {
+	cryptoKey := e.randBytes(32)
 	var (
-		engine *keystone.Engine
-		asmTpl string
+		engine  *keystone.Engine
+		asmTpl  string
+		decoder []byte
+		eraser  []byte
 	)
 	switch arch {
 	case 32:
 		engine = e.engine32
-		asmTpl = ""
+		asmTpl = x86asm
+		decoder = x86Decoder
+		eraser = x86Eraser
+		shellcode = encrypt32(shellcode, cryptoKey)
 	case 64:
 		engine = e.engine64
 		asmTpl = x64asm
+		decoder = x64Decoder
+		eraser = x64Eraser
+		shellcode = encrypt64(shellcode, cryptoKey)
 	default:
 		return nil, errors.New("invalid architecture")
 	}
 	e.arch = arch
 	e.opts = opts
+	e.key = cryptoKey
+	e.sc = shellcode
+
 	tpl, err := template.New("asm_src").Funcs(template.FuncMap{
 		"db":  toDB,
 		"hex": toHex,
@@ -154,15 +169,14 @@ func (e *Encoder) encode(shellcode []byte, arch int, opts *Options) ([]byte, err
 	if err != nil {
 		return nil, fmt.Errorf("invalid assembly source template: %s", err)
 	}
-	cryptoKey := e.randBytes(32)
-	shellcode = encrypt32(shellcode, cryptoKey)
+
 	jump := e.garbageJumpShort(64)
 	ctx := asmContext{
 		JumpShort:      jump,
 		SaveContext:    nil,
 		RestoreContext: nil,
-		DecryptorStub:  x64Decoder,
-		CleanerStub:    nil,
+		DecryptorStub:  decoder,
+		EraserStub:     eraser,
 		CryptoKey:      cryptoKey,
 		CryptoKeyLen:   len(cryptoKey),
 		Shellcode:      shellcode,
@@ -186,10 +200,10 @@ func (e *Encoder) encode(shellcode []byte, arch int, opts *Options) ([]byte, err
 
 // Close is used to close shellcode encoder.
 func (e *Encoder) Close() error {
-	err := e.engine32.Close()
-	er := e.engine64.Close()
-	if er != nil && err == nil {
-		err = er
+	err0 := e.engine32.Close()
+	err1 := e.engine64.Close()
+	if err1 != nil && err0 == nil {
+		err0 = err1
 	}
-	return err
+	return err0
 }
