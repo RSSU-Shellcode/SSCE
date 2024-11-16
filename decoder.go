@@ -17,16 +17,28 @@ func (e *Encoder) decoderBuilder() []byte {
 	return builder
 }
 
-func (e *Encoder) cleanerBuilder() []byte {
-	var cleaner []byte
+func (e *Encoder) eraserBuilder() []byte {
+	var eraser []byte
 	switch e.arch {
 	case 32:
-		cleaner = x86Cleaner
+		eraser = x86Eraser
 	case 64:
-		cleaner = x64Cleaner
+		eraser = x64Eraser
 	}
 	builder := make([]byte, 0, 512)
-	builder = append(builder, cleaner...)
+	builder = append(builder, eraser...)
+	return builder
+}
+
+func (e *Encoder) cryptoKeyBuilder() []byte {
+	builder := make([]byte, 0, 512)
+	builder = append(builder, e.key...)
+	return builder
+}
+
+func (e *Encoder) shellcodeBuilder() []byte {
+	builder := make([]byte, 0, 512)
+	builder = append(builder, e.sc...)
 	return builder
 }
 
@@ -41,22 +53,30 @@ func (e *Encoder) decoderStub() []byte {
 	return e.randBytes(len(decoder))
 }
 
-func (e *Encoder) cleanerStub() []byte {
-	var cleaner []byte
+func (e *Encoder) eraserStub() []byte {
+	var eraser []byte
 	switch e.arch {
 	case 32:
-		cleaner = x86Cleaner
+		eraser = x86Eraser
 	case 64:
-		cleaner = x64Cleaner
+		eraser = x64Eraser
 	}
-	return e.randBytes(len(cleaner))
+	return e.randBytes(len(eraser))
+}
+
+func (e *Encoder) cryptoKeyStub() []byte {
+	return e.randBytes(len(e.key))
+}
+
+func (e *Encoder) shellcodeStub() []byte {
+	return e.randBytes(len(e.sc))
 }
 
 func encrypt32(data, key []byte) []byte {
 	output := make([]byte, len(data))
 	last := binary.LittleEndian.Uint32(key[:4])
 	ctr := binary.LittleEndian.Uint32(key[4:])
-	keyIdx := int(last % 32)
+	keyIdx := int(last % uint32(len(key)))
 	for i := 0; i < len(data); i++ {
 		b := data[i]
 		b ^= byte(last)
@@ -80,7 +100,7 @@ func encrypt64(data, key []byte) []byte {
 	output := make([]byte, len(data))
 	last := binary.LittleEndian.Uint64(key[:8])
 	ctr := binary.LittleEndian.Uint64(key[8:])
-	keyIdx := int(last % 32)
+	keyIdx := int(last % uint64(len(key)))
 	for i := 0; i < len(data); i++ {
 		b := data[i]
 		b ^= byte(last)
