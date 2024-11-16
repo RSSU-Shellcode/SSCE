@@ -1,39 +1,39 @@
 #pragma warning(disable: 4255)
 #pragma warning(disable: 4711)
 
-typedef unsigned int  uint;
+#ifdef _WIN64
+  typedef unsigned long long uint;
+#elif _WIN32
+  typedef unsigned long uint;
+#endif
 typedef unsigned char uint8;
-typedef unsigned long uint32;
 typedef uint8 byte;
 
-void decrypt(byte* data, uint dataLen, byte* key, uint keyLen);
-void clean(byte* data, uint len);
+void decode(byte* data, uint dataLen, byte* key, uint keyLen);
 
-static uint32 xorShift32(uint32 seed);
-static byte   ror(byte value, uint8 bits);
-static byte   rol(byte value, uint8 bits);
+static uint xorShift(uint seed);
+static byte ror(byte value, uint8 bits);
+static byte rol(byte value, uint8 bits);
 
 // prevent incorrect optimization of the number of parameters
 #pragma comment(linker, "/ENTRY:EntryMain")
 uint EntryMain() {
     byte sc0[]  = { 's', 'c' };
     byte key0[] = { 'k', 'e', 'y', '0'};
-    decrypt(sc0, 2, key0, 4);
-    clean(sc0, 2);
+    decode(sc0, 2, key0, 4);
 
     byte sc1[]  = { 's', 'c', '1'};
-    byte key1[] = { 'k', 'e', 'y', '1'};
-    decrypt(sc1, 3, key1, 4);
-    clean(sc1, 3);
-    return sc0[0] + sc1[0];
+    byte key1[] = { 'k', 'e', 'y', '1', '2'};
+    decode(sc1, 3, key1, 5);
+    return (uint)(sc0[0] + sc1[0]);
 }
 
 __declspec(noinline)
- void decrypt(byte* data, uint dataLen, byte* key, uint keyLen)
+ void decode(byte* data, uint dataLen, byte* key, uint keyLen)
 {
-    uint32 ctr  = *(uint32*)(key+4);
-    uint32 last = *(uint32*)(key+0);
-    uint keyIdx = last % 32;
+    uint last = *(uint*)(key);
+    uint ctr  = *(uint*)(key+sizeof(uint));
+    uint keyIdx = last % keyLen;
     for (uint i = 0; i < dataLen; i++)
     {
         byte b = *data;
@@ -50,17 +50,23 @@ __declspec(noinline)
             keyIdx = 0;
         }
         ctr++;
-        last = xorShift32(last);
+        last = xorShift(last);
         // update data address
         data++;
     }
 }
 
-static uint32 xorShift32(uint32 seed)
+static uint xorShift(uint seed)
 {
+#ifdef _WIN64
+    seed ^= seed << 13;
+    seed ^= seed >> 7;
+    seed ^= seed << 17;
+#elif _WIN32
     seed ^= seed << 13;
     seed ^= seed >> 17;
     seed ^= seed << 5;
+#endif
     return seed;
 }
 
@@ -72,14 +78,4 @@ static byte ror(byte value, uint8 bits)
 static byte rol(byte value, uint8 bits)
 {
     return value << bits | value >> (8 - bits);
-}
-
-// prevent link to the internel "memset"
-__declspec(noinline)
-void clean(byte* data, uint len)
-{
-    for (uint i = 0; i < len; i++)
-    {
-        data[i] ^= data[i]+1;
-    }
 }
