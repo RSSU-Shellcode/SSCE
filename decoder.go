@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func (e *Encoder) decoderBuilder() []byte {
+func (e *Encoder) decoderBuilder() string {
 	var decoder []byte
 	switch e.arch {
 	case 32:
@@ -14,12 +14,10 @@ func (e *Encoder) decoderBuilder() []byte {
 	case 64:
 		decoder = x64Decoder
 	}
-	builder := make([]byte, 0, 512)
-	builder = append(builder, decoder...)
-	return builder
+	return e.instBuilder(decoder, "decoder_stub")
 }
 
-func (e *Encoder) eraserBuilder() []byte {
+func (e *Encoder) eraserBuilder() string {
 	var eraser []byte
 	switch e.arch {
 	case 32:
@@ -27,21 +25,15 @@ func (e *Encoder) eraserBuilder() []byte {
 	case 64:
 		eraser = x64Eraser
 	}
-	builder := make([]byte, 0, 512)
-	builder = append(builder, eraser...)
-	return builder
+	return e.instBuilder(eraser, "eraser_stub")
 }
 
-func (e *Encoder) cryptoKeyBuilder() []byte {
-	builder := make([]byte, 0, 512)
-	builder = append(builder, e.key...)
-	return builder
+func (e *Encoder) cryptoKeyBuilder() string {
+	return e.instBuilder(e.key, "crypto_key_stub")
 }
 
-func (e *Encoder) shellcodeBuilder() []byte {
-	builder := make([]byte, 0, 512)
-	builder = append(builder, e.sc...)
-	return builder
+func (e *Encoder) shellcodeBuilder() string {
+	return e.instBuilder(e.sc, "shellcode_stub")
 }
 
 // lea reg, [rbx + offset + index]
@@ -88,33 +80,54 @@ func (e *Encoder) instBuilder64(inst []byte, offset string) string {
 		if rem == 0 {
 			break
 		}
-		reg := registers[e.rand.Intn(len(registers))]
 		opSize := e.selectOpSize64(rem)
 		var (
 			op string
-			im int
+			im uint
 		)
 		switch opSize {
 		case 1:
 			op = "byte"
-			im = int(inst[index])
+			im = uint(inst[index])
 		case 2:
 			op = "word"
-			im = int(binary.LittleEndian.Uint16(inst[index:]))
+			im = uint(binary.LittleEndian.Uint16(inst[index:]))
 		case 4:
 			op = "dword"
-			im = int(binary.LittleEndian.Uint32(inst[index:]))
+			im = uint(binary.LittleEndian.Uint32(inst[index:]))
 		case 8:
-			op = "qword"
-			im = int(binary.LittleEndian.Uint64(inst[index:]))
+			im = uint(binary.LittleEndian.Uint64(inst[index:]))
 		}
-		asm := "lea %s, [rbx + %s + 0x%X] {{igi}}\n"
-		_, _ = fmt.Fprintf(builder, asm, reg, offset, index)
-		asm = "mov %s ptr [%s], 0x%X {{igi}}\n"
-		_, _ = fmt.Fprintf(builder, asm, op, reg, im)
+		addr := registers[e.rand.Intn(len(registers))]
+		if opSize == 8 {
+			var val string
+			for {
+				val = registers[e.rand.Intn(len(registers))]
+				if val != addr {
+					break
+				}
+			}
+			asm := "  lea %s, [rbx + %s + 0x%X]"
+			asm += e.insertGarbageInst() + "\n"
+			_, _ = fmt.Fprintf(builder, asm, addr, offset, index)
+			asm = "  mov %s, 0x%X"
+			asm += e.insertGarbageInst() + "\n"
+			_, _ = fmt.Fprintf(builder, asm, val, im)
+			asm = "  mov [%s], %s"
+			asm += e.insertGarbageInst() + "\n"
+			_, _ = fmt.Fprintf(builder, asm, addr, val)
+		} else {
+			asm := "  lea %s, [rbx + %s + 0x%X]"
+			asm += e.insertGarbageInst() + "\n"
+			_, _ = fmt.Fprintf(builder, asm, addr, offset, index)
+			asm = "  mov %s ptr [%s], 0x%X"
+			asm += e.insertGarbageInst() + "\n"
+			_, _ = fmt.Fprintf(builder, asm, op, addr, im)
+		}
 		rem -= opSize
 		index += opSize
 	}
+	builder.WriteString("  ret" + e.insertGarbageInst() + "\n")
 	return builder.String()
 }
 
