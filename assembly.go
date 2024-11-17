@@ -33,9 +33,6 @@ entry:
   flag_CEA:
   {{igi}}                          {{igi}}
 
-  lea rax, [rbx + decoder_stub + 0x02]
-  mov word ptr [rax], 0x1234
-
   // build instructions to stub and erase itself
   {{db .SaveRegister}}
   call decoder_builder             {{igi}}
@@ -117,19 +114,15 @@ erase_eraser_stub:
 
 decoder_builder:
   {{.DecoderBuilder}}
-  ret                              {{igi}}
 
 eraser_builder:
   {{.EraserBuilder}}
-  ret                              {{igi}}
 
 crypto_key_builder:
   {{.CryptoKeyBuilder}}
-  ret                              {{igi}}
 
 shellcode_builder:
   {{.ShellcodeBuilder}}
-  ret                              {{igi}}
 
 decoder_stub:
   {{db .DecoderStub}}              {{igi}}
@@ -159,8 +152,8 @@ type asmContext struct {
 	DecoderStub   []byte
 	EraserStub    []byte
 	CryptoKeyStub []byte
-	CryptoKeyLen  int
 	ShellcodeStub []byte
+	CryptoKeyLen  int
 	ShellcodeLen  int
 }
 
@@ -172,7 +165,8 @@ func toDB(b []byte) string {
 	builder.WriteString(".byte ")
 	for i := 0; i < len(b); i++ {
 		builder.WriteString("0x")
-		builder.WriteString(hex.EncodeToString([]byte{b[i]}))
+		s := hex.EncodeToString([]byte{b[i]})
+		builder.WriteString(strings.ToUpper(s))
 		builder.WriteString(", ")
 	}
 	return builder.String()
