@@ -133,23 +133,17 @@ func (e *Encoder) Encode(shellcode []byte, arch int, opts *Options) ([]byte, err
 func (e *Encoder) encode(shellcode []byte, arch int, opts *Options) ([]byte, error) {
 	cryptoKey := e.randBytes(32)
 	var (
-		engine  *keystone.Engine
-		asmTpl  string
-		decoder []byte
-		eraser  []byte
+		engine *keystone.Engine
+		asmTpl string
 	)
 	switch arch {
 	case 32:
 		engine = e.engine32
 		asmTpl = x86asm
-		decoder = x86Decoder
-		eraser = x86Eraser
 		shellcode = encrypt32(shellcode, cryptoKey)
 	case 64:
 		engine = e.engine64
 		asmTpl = x64asm
-		decoder = x64Decoder
-		eraser = x64Eraser
 		shellcode = encrypt64(shellcode, cryptoKey)
 	default:
 		return nil, errors.New("invalid architecture")
@@ -162,25 +156,26 @@ func (e *Encoder) encode(shellcode []byte, arch int, opts *Options) ([]byte, err
 	tpl, err := template.New("asm_src").Funcs(template.FuncMap{
 		"db":  toDB,
 		"hex": toHex,
-		"igi": func() string {
-			return ";" + toDB(e.garbageInst())
-		},
+		"igi": e.insertGarbageInst,
 	}).Parse(asmTpl)
 	if err != nil {
 		return nil, fmt.Errorf("invalid assembly source template: %s", err)
 	}
 
-	jump := e.garbageJumpShort(64)
 	ctx := asmContext{
-		JumpShort:      jump,
-		SaveContext:    nil,
-		RestoreContext: nil,
-		DecryptorStub:  decoder,
-		EraserStub:     eraser,
-		CryptoKey:      cryptoKey,
-		CryptoKeyLen:   len(cryptoKey),
-		Shellcode:      shellcode,
-		ShellcodeLen:   len(shellcode),
+		JumpShort:        e.garbageJumpShort(64),
+		SaveRegister:     e.saveContext(),
+		RestoreRegister:  e.restoreContext(),
+		DecoderBuilder:   e.decoderBuilder(),
+		EraserBuilder:    e.eraserBuilder(),
+		CryptoKeyBuilder: e.cryptoKeyBuilder(),
+		ShellcodeBuilder: e.shellcodeBuilder(),
+		DecoderStub:      e.decoderStub(),
+		EraserStub:       e.eraserStub(),
+		CryptoKeyStub:    e.cryptoKeyStub(),
+		ShellcodeStub:    e.shellcodeStub(),
+		CryptoKeyLen:     len(cryptoKey),
+		ShellcodeLen:     len(shellcode),
 	}
 	if opts.SaveContext {
 		ctx.SaveContext = e.saveContext()
@@ -196,6 +191,10 @@ func (e *Encoder) encode(shellcode []byte, arch int, opts *Options) ([]byte, err
 		return nil, err
 	}
 	return inst, nil
+}
+
+func (e *Encoder) insertGarbageInst() string {
+	return ";" + toDB(e.garbageInst())
 }
 
 // Close is used to close shellcode encoder.

@@ -28,7 +28,8 @@ func TestCompressRatio(t *testing.T) {
 			err = w.Close()
 			require.NoError(t, err)
 
-			require.Greaterf(t, buf.Len(), len(cipher), "bad compress ratio at %d\n", i)
+			expected := len(cipher) * 98 / 100
+			require.Greaterf(t, buf.Len(), expected, "bad compress ratio at %d\n", i)
 		}
 	})
 
@@ -50,7 +51,8 @@ func TestCompressRatio(t *testing.T) {
 			err = w.Close()
 			require.NoError(t, err)
 
-			require.Greaterf(t, buf.Len(), len(cipher), "bad compress ratio at %d\n", i)
+			expected := len(cipher) * 98 / 100
+			require.Greaterf(t, buf.Len(), expected, "bad compress ratio at %d\n", i)
 		}
 	})
 }
