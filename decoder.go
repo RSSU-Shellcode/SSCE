@@ -1,6 +1,7 @@
 package ssce
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"strings"
@@ -30,10 +31,6 @@ func (e *Encoder) eraserBuilder() string {
 
 func (e *Encoder) cryptoKeyBuilder() string {
 	return e.instBuilder(e.key, "crypto_key_stub")
-}
-
-func (e *Encoder) shellcodeBuilder() string {
-	return e.instBuilder(e.sc, "shellcode_stub")
 }
 
 // lea reg, [rbx + offset + index]
@@ -154,7 +151,7 @@ func (e *Encoder) decoderStub() []byte {
 	case 64:
 		decoder = x64Decoder
 	}
-	return e.randBytes(len(decoder))
+	return e.miniXOR(decoder, e.decoderStubKey)
 }
 
 func (e *Encoder) eraserStub() []byte {
@@ -165,15 +162,54 @@ func (e *Encoder) eraserStub() []byte {
 	case 64:
 		eraser = x64Eraser
 	}
-	return e.randBytes(len(eraser))
+	return e.miniXOR(eraser, e.eraserStubKey)
 }
 
 func (e *Encoder) cryptoKeyStub() []byte {
-	return e.randBytes(len(e.key))
+	return e.miniXOR(e.key, e.cryptoKeyStubKey)
 }
 
-func (e *Encoder) shellcodeStub() []byte {
-	return e.randBytes(len(e.sc))
+func (e *Encoder) miniXOR(inst []byte, key interface{}) []byte {
+	switch e.arch {
+	case 32:
+		return e.miniXOR32(inst, key.(uint32))
+	case 64:
+		return e.miniXOR64(inst, key.(uint64))
+	default:
+		panic("invalid architecture")
+	}
+}
+
+func (e *Encoder) miniXOR32(inst []byte, key uint32) []byte {
+	l := len(inst)
+	inst = bytes.Clone(inst)
+	// ensure the instructions length can be divisible by 4.
+	numPad := l % 4
+	if numPad != 0 {
+		numPad = 4 - numPad
+	}
+	inst = append(inst, e.randBytes(numPad)...)
+	for i := 0; i < len(inst); i += 4 {
+		val := binary.LittleEndian.Uint32(inst[i:i+4]) ^ key
+		binary.LittleEndian.PutUint32(inst[i:i+4], val)
+	}
+	return inst
+}
+
+func (e *Encoder) miniXOR64(inst []byte, key uint64) []byte {
+	l := len(inst)
+	inst = bytes.Clone(inst)
+	// ensure the instructions length can be divisible by 8.
+	numPad := l % 8
+	if numPad != 0 {
+		numPad = 8 - numPad
+	}
+	inst = append(inst, e.randBytes(numPad)...)
+	for i := 0; i < len(inst); i += 8 {
+		val := binary.LittleEndian.Uint64(inst[i:i+8]) ^ key
+		binary.LittleEndian.PutUint64(inst[i:i+8], val)
+	}
+	return inst
 }
 
 func encrypt32(data, key []byte) []byte {
