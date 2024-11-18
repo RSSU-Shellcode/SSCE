@@ -21,7 +21,11 @@ type Encoder struct {
 	arch int
 	opts *Options
 	key  []byte
-	sc   []byte
+
+	// for xor stubs
+	decoderStubKey   interface{}
+	eraserStubKey    interface{}
+	cryptoKeyStubKey interface{}
 
 	// save and restore context
 	contextSeq []int
@@ -95,35 +99,22 @@ func (e *Encoder) Encode(shellcode []byte, arch int, opts *Options) ([]byte, err
 	// iterate the encoding of the pre-decoder and part of the shellcode
 	numIter := opts.NumIterator
 	if numIter < 1 {
-		numIter = 4 + e.rand.Intn(8)
+		numIter = 2 + e.rand.Intn(4)
 	}
 	if opts.NoIterator {
 		numIter = 0
 	}
-	divider := e.rand.Intn(len(output))
 	for i := 0; i < numIter; i++ {
-		input := output[:divider]
-		newOutput, err := e.encode(input, arch, opts)
+		output, err = e.encode(output, arch, opts)
 		if err != nil {
 			return nil, err
 		}
-		output = append(newOutput, output[divider:]...)
-		divider = e.rand.Intn(len(newOutput))
 	}
 	// padding garbage at the tail
 	times := 8 + e.rand.Intn((numIter+1)*16)
-	if opts.NoGarbage {
-		times = 0
-	}
-	for j := 0; j < times; j++ {
-		var garbage []byte
-		switch e.rand.Intn(3) {
-		case 0:
-			garbage = e.randBytes(e.rand.Intn(24))
-		case 1, 2:
-			garbage = e.randString(e.rand.Intn(16))
-		}
-		output = append(output, garbage...)
+	if !opts.NoGarbage {
+		num := e.rand.Intn(16 * times)
+		output = append(output, e.randBytes(num)...)
 	}
 	// append garbage data to tail for prevent brute-force
 	output = append(output, e.randBytes(opts.NumTailInst)...)
@@ -135,23 +126,35 @@ func (e *Encoder) encode(shellcode []byte, arch int, opts *Options) ([]byte, err
 	var (
 		engine *keystone.Engine
 		asmTpl string
+
+		decoderStubKey   interface{}
+		eraserStubKey    interface{}
+		cryptoKeyStubKey interface{}
 	)
 	switch arch {
 	case 32:
 		engine = e.engine32
 		asmTpl = x86asm
 		shellcode = encrypt32(shellcode, cryptoKey)
+		decoderStubKey = e.rand.Uint32()
+		eraserStubKey = e.rand.Uint32()
+		cryptoKeyStubKey = e.rand.Uint32()
 	case 64:
 		engine = e.engine64
 		asmTpl = x64asm
 		shellcode = encrypt64(shellcode, cryptoKey)
+		decoderStubKey = e.rand.Uint64()
+		eraserStubKey = e.rand.Uint64()
+		cryptoKeyStubKey = e.rand.Uint64()
 	default:
 		return nil, errors.New("invalid architecture")
 	}
 	e.arch = arch
 	e.opts = opts
 	e.key = cryptoKey
-	e.sc = shellcode
+	e.decoderStubKey = decoderStubKey
+	e.eraserStubKey = eraserStubKey
+	e.cryptoKeyStubKey = cryptoKeyStubKey
 
 	tpl, err := template.New("asm_src").Funcs(template.FuncMap{
 		"db":  toDB,
@@ -166,14 +169,12 @@ func (e *Encoder) encode(shellcode []byte, arch int, opts *Options) ([]byte, err
 		JumpShort:        e.garbageJumpShort(64),
 		SaveRegister:     e.saveContext(),
 		RestoreRegister:  e.restoreContext(),
-		DecoderBuilder:   e.decoderBuilder(),
-		EraserBuilder:    e.eraserBuilder(),
-		CryptoKeyBuilder: e.cryptoKeyBuilder(),
-		ShellcodeBuilder: e.shellcodeBuilder(),
+		DecoderStubKey:   decoderStubKey,
+		EraserStubKey:    eraserStubKey,
+		CryptoKeyStubKey: cryptoKeyStubKey,
 		DecoderStub:      e.decoderStub(),
 		EraserStub:       e.eraserStub(),
 		CryptoKeyStub:    e.cryptoKeyStub(),
-		ShellcodeStub:    e.shellcodeStub(),
 		CryptoKeyLen:     len(cryptoKey),
 		ShellcodeLen:     len(shellcode),
 	}
@@ -190,6 +191,7 @@ func (e *Encoder) encode(shellcode []byte, arch int, opts *Options) ([]byte, err
 	if err != nil {
 		return nil, err
 	}
+	inst = append(inst, shellcode...)
 	return inst, nil
 }
 
