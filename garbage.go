@@ -27,10 +27,10 @@ func (e *Encoder) garbageJumpShort(max int) []byte {
 	jmp = append(jmp, 0xEB, byte(offset))
 	// padding garbage data
 	var inst []byte
-	switch e.rand.Intn(3) {
+	switch e.rand.Intn(2) {
 	case 0:
 		inst = e.randBytes(offset)
-	case 1, 2:
+	case 1:
 		inst = e.randString(offset)
 	}
 	jmp = append(jmp, inst...)
