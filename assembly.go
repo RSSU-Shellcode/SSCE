@@ -33,23 +33,20 @@ entry:
   flag_CEA:
   {{igi}}                          {{igi}}
 
-  // build instructions to stub and erase itself
+  // decode instructions in stub and erase them
+
   {{db .SaveRegister}}
-  call decoder_builder             {{igi}}
-  call eraser_builder              {{igi}}
-  call crypto_key_builder          {{igi}}
-  call shellcode_builder           {{igi}}
+  call decode_stubs                {{igi}}
   call decode_shellcode            {{igi}}
-  call erase_builders              {{igi}}
   call erase_decoder_stub          {{igi}}
   call erase_crypto_key_stub       {{igi}}
   {{db .RestoreRegister}}
 
   // execute the shellcode
-  sub rsp, 0x80                    {{igi}}   // reserve stack
+  sub rsp, 0x60                    {{igi}}   // reserve stack
   call shellcode_stub              {{igi}}   // call the shellcode
-  add rsp, 0x80                    {{igi}}   // restore stack
-
+  add rsp, 0x60                    {{igi}}   // restore stack
+ 
   // erase the remaining instructions
   push rax                         {{igi}}   // save the shellcode return value
   call erase_shellcode_stub        {{igi}}
@@ -72,6 +69,34 @@ calc_entry_addr:
   push rax                         {{igi}}   // push return address
   ret                              {{igi}}   // return to the entry
 
+// rcx = data length, rdx = data address, r8 = key.
+// this function assumes that the data length is divisible by 8.
+mini_xor:
+  shr rcx, 3                       {{igi}}   // rcx = rcx / 8
+  loop_xor:                        {{igi}}
+  xor [rdx], r8                    {{igi}}
+  add rdx, 8                       {{igi}}
+  dec rcx                          {{igi}}
+  jnz loop_xor                     {{igi}}
+  ret                              {{igi}}
+
+decode_stubs:
+  mov rcx, eraser_stub - decoder_stub        {{igi}}
+  lea rdx, [rbx + decoder_stub]              {{igi}}
+  mov r8, {{hex .DecoderStubKey}}            {{igi}}
+  call mini_xor                              {{igi}}
+
+  mov rcx, crypto_key_stub - eraser_stub     {{igi}}
+  lea rdx, [rbx + eraser_stub]               {{igi}}
+  mov r8, {{hex .EraserStubKey}}             {{igi}}
+  call mini_xor                              {{igi}}
+
+  mov rcx, shellcode_stub - crypto_key_stub  {{igi}}
+  lea rdx, [rbx + crypto_key_stub]           {{igi}}
+  mov r8, {{hex .CryptoKeyStubKey}}          {{igi}}
+  call mini_xor                              {{igi}}
+  ret
+
 decode_shellcode:
   lea rcx, [rbx + shellcode_stub]  {{igi}}
   mov rdx, {{hex .ShellcodeLen}}   {{igi}}
@@ -82,12 +107,7 @@ decode_shellcode:
   add rsp, 0x40                    {{igi}}
   ret                              {{igi}}
 
-erase_builders:
-  lea rcx, [rbx + decoder_builder]           {{igi}}
-  mov rdx, decoder_stub - decoder_builder    {{igi}}
-  call eraser_stub                           {{igi}}
-  ret                                        {{igi}}
-
+// TODO merge the next func
 erase_decoder_stub:
   lea rcx, [rbx + decoder_stub]              {{igi}}
   mov rdx, eraser_stub - decoder_stub        {{igi}}
@@ -112,29 +132,16 @@ erase_shellcode_stub:
 erase_eraser_stub:
   ret                                        {{igi}}
 
-decoder_builder:
-  {{.DecoderBuilder}}
-
-eraser_builder:
-  {{.EraserBuilder}}
-
-crypto_key_builder:
-  {{.CryptoKeyBuilder}}
-
-shellcode_builder:
-  {{.ShellcodeBuilder}}
-
 decoder_stub:
-  {{db .DecoderStub}}              {{igi}}
+  {{db .DecoderStub}}                        {{igi}}
 
 eraser_stub:
-  {{db .EraserStub}}               {{igi}}
+  {{db .EraserStub}}                         {{igi}}
 
 crypto_key_stub:
-  {{db .CryptoKeyStub}}            {{igi}}
+  {{db .CryptoKeyStub}}                      {{igi}}
 
 shellcode_stub:
-  {{db .ShellcodeStub}}
 `
 
 type asmContext struct {
@@ -144,15 +151,13 @@ type asmContext struct {
 
 	SaveRegister     []byte
 	RestoreRegister  []byte
-	DecoderBuilder   string
-	EraserBuilder    string
-	CryptoKeyBuilder string
-	ShellcodeBuilder string
+	DecoderStubKey   interface{}
+	EraserStubKey    interface{}
+	CryptoKeyStubKey interface{}
 
 	DecoderStub   []byte
 	EraserStub    []byte
 	CryptoKeyStub []byte
-	ShellcodeStub []byte
 	CryptoKeyLen  int
 	ShellcodeLen  int
 }
@@ -172,6 +177,6 @@ func toDB(b []byte) string {
 	return builder.String()
 }
 
-func toHex(v int) string {
+func toHex(v interface{}) string {
 	return fmt.Sprintf("0x%X", v)
 }
