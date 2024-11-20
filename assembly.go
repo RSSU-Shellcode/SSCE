@@ -6,6 +6,45 @@ import (
 	"strings"
 )
 
+var x64MiniXOR = `
+.code64
+
+header:
+  push rbx
+  push rcx
+  push rdx
+  pushfq
+
+  lea rcx, [rip + body + 0xFF12FF21]
+  add rcx, 0x7FFFFFFF
+  sub rcx, 0x7FFFFFFF
+
+  xor rdx, rdx
+  add rdx, {{hex .NumLoop}}
+  loop_xor:
+  mov rbx, {{hex .CryptoKey}}
+  xor [rcx], rbx
+
+  ror rcx, 8
+  rol
+
+
+  add rcx, 8
+  dec rdx
+  jnz loop_xor
+
+  popfq
+  pop rdx
+  pop rcx
+  pop rbx
+body:
+`
+
+type headerContext struct {
+	NumLoop   int
+	CryptoKey uint64
+}
+
 var x86asm = `
 .code32
 
@@ -148,13 +187,13 @@ type asmContext struct {
 	JumpShort      []byte
 	SaveContext    []byte
 	RestoreContext []byte
-
+	
 	SaveRegister     []byte
 	RestoreRegister  []byte
 	DecoderStubKey   interface{}
 	EraserStubKey    interface{}
 	CryptoKeyStubKey interface{}
-
+	
 	DecoderStub   []byte
 	EraserStub    []byte
 	CryptoKeyStub []byte
