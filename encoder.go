@@ -118,7 +118,36 @@ func (e *Encoder) Encode(shellcode []byte, arch int, opts *Options) ([]byte, err
 	}
 	// append garbage data to tail for prevent brute-force
 	output = append(output, e.randBytes(opts.NumTailInst)...)
-	return output, nil
+
+	tpl, err := template.New("asm_src").Funcs(template.FuncMap{
+		"db":  toDB,
+		"hex": toHex,
+		"igi": e.insertGarbageInst,
+	}).Parse(x64MiniXOR)
+	if err != nil {
+		return nil, fmt.Errorf("invalid assembly source template: %s", err)
+	}
+
+	key := e.rand.Uint64()
+	body := e.miniXOR(output, key)
+	ctx := headerContext{
+		NumLoop:   len(body) / 8,
+		CryptoKey: key,
+	}
+
+	buf := bytes.NewBuffer(make([]byte, 0, 2048+5*len(shellcode)))
+	err = tpl.Execute(buf, &ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build assembly source: %s", err)
+	}
+
+	// fmt.Println(buf)
+
+	inst, err := e.engine64.Assemble(buf.String(), 0)
+	if err != nil {
+		return nil, err
+	}
+	return append(inst, body...), nil
 }
 
 func (e *Encoder) encode(shellcode []byte, arch int, opts *Options) ([]byte, error) {
