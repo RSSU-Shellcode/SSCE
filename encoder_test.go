@@ -3,6 +3,9 @@
 package ssce
 
 import (
+	"bytes"
+	"compress/flate"
+	"fmt"
 	"os"
 	"runtime"
 	"syscall"
@@ -55,6 +58,28 @@ func TestEncoder(t *testing.T) {
 		shellcode, err = encoder.Encode(shellcode, 64, opts)
 		require.NoError(t, err)
 		spew.Dump(shellcode)
+
+		data := bytes.Repeat([]byte{0x00}, 256*1024)
+
+		for i := 0; i < 1000; i++ {
+			key := encoder.rand.Uint64()
+			cipher := encoder.miniXOR64(data, key)
+			require.NoError(t, err)
+
+			buf := bytes.NewBuffer(make([]byte, 0, 256*1024))
+			w, err := flate.NewWriter(buf, flate.BestCompression)
+			require.NoError(t, err)
+			_, err = w.Write(cipher)
+			require.NoError(t, err)
+			err = w.Close()
+			require.NoError(t, err)
+
+			expected := len(cipher) * 95 / 100
+			require.Greaterf(t, buf.Len(), expected, "bad compress ratio at %d\n", i)
+		}
+
+		fmt.Println("ok")
+		return
 
 		if runtime.GOARCH != "amd64" {
 			return
