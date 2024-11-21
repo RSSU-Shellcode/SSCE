@@ -43,10 +43,9 @@ func (e *Encoder) miniXOR(inst []byte, key interface{}) []byte {
 }
 
 func (e *Encoder) miniXOR32(inst []byte, key uint32) []byte {
-	l := len(inst)
-	inst = bytes.Clone(inst)
 	// ensure the instructions length can be divisible by 4.
-	numPad := l % 4
+	inst = bytes.Clone(inst)
+	numPad := len(inst) % 4
 	if numPad != 0 {
 		numPad = 4 - numPad
 	}
@@ -59,15 +58,59 @@ func (e *Encoder) miniXOR32(inst []byte, key uint32) []byte {
 }
 
 func (e *Encoder) miniXOR64(inst []byte, key uint64) []byte {
-	l := len(inst)
-	inst = bytes.Clone(inst)
 	// ensure the instructions length can be divisible by 8.
-	numPad := l % 8
+	inst = bytes.Clone(inst)
+	numPad := len(inst) % 8
 	if numPad != 0 {
 		numPad = 8 - numPad
 	}
 	inst = append(inst, e.randBytes(numPad)...)
-	seed := e.rand.Uint64()
+	for i := 0; i < len(inst); i += 8 {
+		val := binary.LittleEndian.Uint64(inst[i:i+8]) ^ key
+		binary.LittleEndian.PutUint64(inst[i:i+8], val)
+	}
+	return inst
+}
+
+func (e *Encoder) xsrl(inst []byte, seed, key interface{}) []byte {
+	switch e.arch {
+	case 32:
+		return e.xsrl32(inst, seed.(uint32), key.(uint32))
+	case 64:
+		return e.xsrl64(inst, seed.(uint64), key.(uint64))
+	default:
+		panic("invalid architecture")
+	}
+}
+
+func (e *Encoder) xsrl32(inst []byte, seed, key uint32) []byte {
+	// ensure the instructions length can be divisible by 4.
+	inst = bytes.Clone(inst)
+	numPad := len(inst) % 4
+	if numPad != 0 {
+		numPad = 4 - numPad
+	}
+	inst = append(inst, e.randBytes(numPad)...)
+	for i := 0; i < len(inst); i += 4 {
+		val := binary.LittleEndian.Uint32(inst[i : i+4])
+		val ^= key
+		val = ror32(val, uint8(key%32))
+		val ^= seed
+		val = rol32(val, uint8(seed%32))
+		binary.LittleEndian.PutUint32(inst[i:i+4], val)
+		seed = xorShift32(seed)
+	}
+	return inst
+}
+
+func (e *Encoder) xsrl64(inst []byte, seed, key uint64) []byte {
+	// ensure the instructions length can be divisible by 8.
+	inst = bytes.Clone(inst)
+	numPad := len(inst) % 8
+	if numPad != 0 {
+		numPad = 8 - numPad
+	}
+	inst = append(inst, e.randBytes(numPad)...)
 	for i := 0; i < len(inst); i += 8 {
 		val := binary.LittleEndian.Uint64(inst[i : i+8])
 		val ^= key
@@ -142,18 +185,26 @@ func xorShift64(seed uint64) uint64 {
 	return seed
 }
 
-func ror64(value uint64, bits uint8) uint64 {
-	return value>>bits | value<<(64-bits)
-}
-
-func rol64(value uint64, bits uint8) uint64 {
-	return value<<bits | value>>(64-bits)
-}
-
 func ror(value byte, bits uint8) byte {
 	return value>>bits | value<<(8-bits)
 }
 
 func rol(value byte, bits uint8) byte {
 	return value<<bits | value>>(8-bits)
+}
+
+func ror32(value uint32, bits uint8) uint32 {
+	return value>>bits | value<<(32-bits)
+}
+
+func rol32(value uint32, bits uint8) uint32 {
+	return value<<bits | value>>(32-bits)
+}
+
+func ror64(value uint64, bits uint8) uint64 {
+	return value>>bits | value<<(64-bits)
+}
+
+func rol64(value uint64, bits uint8) uint64 {
+	return value<<bits | value>>(64-bits)
 }
