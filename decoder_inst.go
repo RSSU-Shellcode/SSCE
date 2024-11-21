@@ -10,7 +10,80 @@ var _ embed.FS
 // extract functions from decoder.c
 var (
 	x86Decoder = []byte{
-		0xC3,
+		0x55,       //                                   push ebp
+		0x8B, 0xEC, //                                   mov ebp,esp
+		0x83, 0xEC, 0x0C, //                             sub esp,C
+		0x53,             //                             push ebx
+		0x56,             //                             push esi
+		0x8B, 0x75, 0x08, //                             mov esi,dword ptr ss:[ebp+8]
+		0x57,       //                                   push edi
+		0x8B, 0xFA, //                                   mov edi,edx
+		0x89, 0x4D, 0xFC, //                             mov dword ptr ss:[ebp-4],ecx
+		0x33, 0xD2, //                                   xor edx,edx
+		0x8B, 0x1E, //                                   mov ebx,dword ptr ds:[esi]
+		0x8B, 0xC3, //                                   mov eax,ebx
+		0xF7, 0x75, 0x0C, //                             div dword ptr ss:[ebp+C]
+		0x89, 0x5D, 0x08, //                             mov dword ptr ss:[ebp+8],ebx
+		0x89, 0x55, 0xF4, //                             mov dword ptr ss:[ebp-C],edx
+		0x85, 0xFF, //                                   test edi,edi
+		0x74, 0x7A, //                                   je decoder.8E10F4
+		0x8B, 0x46, 0x04, //                             mov eax,dword ptr ds:[esi+4]
+		0x89, 0x45, 0xF8, //                             mov dword ptr ss:[ebp-8],eax
+		0x8A, 0x01, //                                   mov al,byte ptr ds:[ecx]
+		0x8A, 0xE3, //                                   mov ah,bl
+		0x80, 0xE4, 0x07, //                             and ah,7
+		0x8A, 0xD8, //                                   mov bl,al
+		0x0F, 0xB6, 0xD4, //                             movzx edx,ah
+		0xB1, 0x08, //                                   mov cl,8
+		0x2A, 0xCC, //                                   sub cl,ah
+		0xD2, 0xEB, //                                   shr bl,cl
+		0x8B, 0xCA, //                                   mov ecx,edx
+		0xD2, 0xE0, //                                   shl al,cl
+		0x8B, 0x4D, 0xF4, //                             mov ecx,dword ptr ss:[ebp-C]
+		0x0A, 0xD8, //                                   or bl,al
+		0x8A, 0x45, 0xF8, //                             mov al,byte ptr ss:[ebp-8]
+		0x32, 0x45, 0x08, //                             xor al,byte ptr ss:[ebp+8]
+		0x2A, 0xD8, //                                   sub bl,al
+		0x32, 0x1C, 0x31, //                             xor bl,byte ptr ds:[ecx+esi]
+		0x8A, 0xC3, //                                   mov al,bl
+		0x6A, 0x08, //                                   push 8
+		0x59,       //                                   pop ecx
+		0x2B, 0xCA, //                                   sub ecx,edx
+		0x8B, 0x55, 0xF4, //                             mov edx,dword ptr ss:[ebp-C]
+		0xD2, 0xE0, //                                   shl al,cl
+		0x42,       //                                   inc edx
+		0x8A, 0xCC, //                                   mov cl,ah
+		0xD2, 0xEB, //                                   shr bl,cl
+		0x8B, 0x4D, 0xFC, //                             mov ecx,dword ptr ss:[ebp-4]
+		0x0A, 0xC3, //                                   or al,bl
+		0x8B, 0x5D, 0x08, //                             mov ebx,dword ptr ss:[ebp+8]
+		0x32, 0xC3, //                                   xor al,bl
+		0x88, 0x01, //                                   mov byte ptr ds:[ecx],al
+		0x8B, 0xCB, //                                   mov ecx,ebx
+		0xC1, 0xE1, 0x0D, //                             shl ecx,D
+		0x33, 0xCB, //                                   xor ecx,ebx
+		0x8B, 0xC1, //                                   mov eax,ecx
+		0xC1, 0xE8, 0x11, //                             shr eax,11
+		0x33, 0xC8, //                                   xor ecx,eax
+		0x8B, 0xD9, //                                   mov ebx,ecx
+		0xC1, 0xE3, 0x05, //                             shl ebx,5
+		0x33, 0xD9, //                                   xor ebx,ecx
+		0x8B, 0x4D, 0xFC, //                             mov ecx,dword ptr ss:[ebp-4]
+		0x41,             //                             inc ecx
+		0x89, 0x5D, 0x08, //                             mov dword ptr ss:[ebp+8],ebx
+		0xFF, 0x45, 0xF8, //                             inc dword ptr ss:[ebp-8]
+		0x3B, 0x55, 0x0C, //                             cmp edx,dword ptr ss:[ebp+C]
+		0x89, 0x4D, 0xFC, //                             mov dword ptr ss:[ebp-4],ecx
+		0x1B, 0xC0, //                                   sbb eax,eax
+		0x23, 0xC2, //                                   and eax,edx
+		0x89, 0x45, 0xF4, //                             mov dword ptr ss:[ebp-C],eax
+		0x83, 0xEF, 0x01, //                             sub edi,1
+		0x75, 0x8C, //                                   jne decoder.8E1080
+		0x5F,             //                             pop edi
+		0x5E,             //                             pop esi
+		0x5B,             //                             pop ebx
+		0xC9,             //                             leave
+		0xC2, 0x08, 0x00, //                             ret 8
 	}
 
 	x64Decoder = []byte{
@@ -30,7 +103,7 @@ var (
 		0x48, 0x8B, 0xEA, //                             mov rbp,rdx
 		0x4C, 0x8B, 0xF1, //                             mov r14,rcx
 		0x48, 0x85, 0xDB, //                             test rbx,rbx
-		0x0F, 0x84, 0x8A, 0x00, 0x00, 0x00, //           je decoder.7FF748D0112E
+		0x0F, 0x84, 0x8A, 0x00, 0x00, 0x00, //           je decoder.7FF742AA112E
 		0x49, 0x8B, 0x70, 0x08, //                       mov rsi,qword ptr ds:[r8+8]
 		0x41, 0x8A, 0x06, //                             mov al,byte ptr ds:[r14]
 		0x45, 0x8A, 0xCB, //                             mov r9b,r11b
@@ -72,7 +145,7 @@ var (
 		0x48, 0x1B, 0xED, //                             sbb rbp,rbp
 		0x48, 0x23, 0xEA, //                             and rbp,rdx
 		0x48, 0x83, 0xEB, 0x01, //                       sub rbx,1
-		0x0F, 0x85, 0x7A, 0xFF, 0xFF, 0xFF, //           jne decoder.7FF748D010A8
+		0x0F, 0x85, 0x7A, 0xFF, 0xFF, 0xFF, //           jne decoder.7FF742AA10A8
 		0x48, 0x8B, 0x5C, 0x24, 0x10, //                 mov rbx,qword ptr ss:[rsp+10]
 		0x48, 0x8B, 0x6C, 0x24, 0x18, //                 mov rbp,qword ptr ss:[rsp+18]
 		0x48, 0x8B, 0x74, 0x24, 0x20, //                 mov rsi,qword ptr ss:[rsp+20]
