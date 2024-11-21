@@ -3,8 +3,13 @@
 
 ; rcx = address, rdx = data length
 erase:
-  mov rdi, rcx       ; load destination address to rdi
-  mov rcx, rdx       ; set the counter to the data length
-  xor rax, rax       ; clear the rax
-  rep stosb          ; fill [rdi] with the value of al, repeat rcx times
-  ret                ; return to the caller
+  mov rax, rcx
+  ror rax, 17
+  shr rdx, 3
+  loop_xor:
+  xor [rcx], rax
+  mov rax, [rcx]
+  add rcx, 8
+  dec rdx
+  jnz loop_xor
+  ret

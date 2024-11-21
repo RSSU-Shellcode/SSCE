@@ -3,8 +3,13 @@
 
 ; ecx = address, edx = data length
 erase:
-  mov edi, ecx       ; load destination address to edi
-  mov ecx, edx       ; set the counter to the data length
-  xor eax, eax       ; clear the eax
-  rep stosb          ; fill [edi] with the value of al, repeat ecx times
-  ret                ; return to the caller
+  mov eax, ecx
+  ror eax, 13
+  shr edx, 2
+  loop_xor:
+  xor [ecx], eax
+  mov eax, [ecx]
+  add ecx, 4
+  dec edx
+  jnz loop_xor
+  ret
