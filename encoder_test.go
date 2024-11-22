@@ -34,8 +34,30 @@ func TestMain(m *testing.M) {
 }
 
 func TestEncoderN(t *testing.T) {
-	for i := 0; i < 20; i++ {
-		TestEncoder(t)
+	for i := 0; i < 100; i++ {
+		asm := ".code64\n"
+		asm += "mov qword ptr [rcx], 0x64\n"
+		asm += "mov rax, 0x64\n"
+		asm += "ret\n"
+		shellcode, err := encoder.engine64.Assemble(asm, 0)
+		require.NoError(t, err)
+
+		opts := &Options{
+			NoIterator: true,
+			NoGarbage:  true,
+		}
+		shellcode, err = encoder.Encode(shellcode, 64, opts)
+		require.NoError(t, err)
+		// spew.Dump(shellcode)
+
+		if runtime.GOARCH != "amd64" {
+			return
+		}
+		addr := loadShellcode(t, shellcode)
+		var val int
+		ret, _, _ := syscall.SyscallN(addr, (uintptr)(unsafe.Pointer(&val)))
+		require.Equal(t, 0x64, val)
+		require.Equal(t, 0x64, int(ret))
 	}
 }
 
