@@ -92,12 +92,12 @@ func (e *Encoder) xsrl32(inst []byte, seed, key uint32) []byte {
 	}
 	inst = append(inst, e.randBytes(numPad)...)
 	for i := 0; i < len(inst); i += 4 {
-		val := binary.LittleEndian.Uint32(inst[i : i+4])
+		val := binary.LittleEndian.Uint32(inst[i:])
 		val ^= key
-		val = ror32(val, uint8(key%32))
+		val = ror32(val, 17)
 		val ^= seed
-		val = rol32(val, uint8(seed%32))
-		binary.LittleEndian.PutUint32(inst[i:i+4], val)
+		val = rol32(val, 5)
+		binary.LittleEndian.PutUint32(inst[i:], val)
 		seed = xorShift32(seed)
 	}
 	return inst
@@ -112,12 +112,12 @@ func (e *Encoder) xsrl64(inst []byte, seed, key uint64) []byte {
 	}
 	inst = append(inst, e.randBytes(numPad)...)
 	for i := 0; i < len(inst); i += 8 {
-		val := binary.LittleEndian.Uint64(inst[i : i+8])
+		val := binary.LittleEndian.Uint64(inst[i:])
 		val ^= key
-		val = ror64(val, uint8(key%64))
+		val = ror64(val, 7)
 		val ^= seed
-		val = rol64(val, uint8(seed%64))
-		binary.LittleEndian.PutUint64(inst[i:i+8], val)
+		val = rol64(val, 17)
+		binary.LittleEndian.PutUint64(inst[i:], val)
 		seed = xorShift64(seed)
 	}
 	return inst
