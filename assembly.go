@@ -18,51 +18,77 @@ var x64MiniDecoder = `
 .code64
 
 header:
-  push rbx
-  push rcx
-  push rdx
-  push rsi
-  push rdi
-  pushfq
+  push rax      // store the random seed
+  push rbx      // store the crypto key
+  push rcx      // store the loop times
+  push rdx      // store the xor shift median
+  push rsi      // store the body address
+  push rdi      // store the current value
+  pushfq        // store the flag register
 
-  lea rcx, [rip + body + 0xFF12FF21]
-  add rcx, 0x3FFFFFFF
-  sub rcx, 0x4FFFFFFF
+  mov rax, {{hex .Seed}}
+  mov rbx, {{hex .Key}}
 
-  mov rsi, {{hex .CryptoKey}}
-  and rsi, 0x40
+  // prevent continuous 0x00
+  mov rcx, {{hex .NumLoopStub}}
+  xor rcx, {{hex .NumLoopMaskA}}
+  xor rcx, {{hex .NumLoopMaskB}}
 
-  xor rdx, rdx
-  add rdx, {{hex .NumLoop}}
-  loop_xor:
-  mov rbx, {{hex .CryptoKey}}
-  xor [rcx], rbx
-  ror [rcx], rsi
-  xor [rcx], rdi
+  // calculate the body address
+  lea rsi, [rip + body + {{hex .OffsetT}}]
+  // prevent continuous 0x00
+  add rsi, {{hex .OffsetA}}
+  sub rsi, {{hex .OffsetS}}
 
-  mov rax, rdi
-  and rax, 0x40
+ loop_xor:
+  // xor block data
+  mov rdi, [rsi]
+  ror rdi, 0x11
+  xor rdi, rax
+  rol rdi, 0x07
+  xor rdi, rbx
+  mov [rsi], rdi
 
-  xor [rcx], rax
+  // seed ^= seed << 13
+  mov rdx, rax
+  shl rdx, 0x0D
+  xor rax, rdx
+  // seed ^= seed >> 7
+  mov rdx, rax
+  shr rdx, 0x07
+  xor rax, rdx
+  // seed ^= seed << 17
+  mov rdx, rax
+  shl rdx, 0x11
+  xor rax, rdx
 
-  ror rcx, 8
-  rol
-
-
-  add rcx, 8
-  dec rdx
+  // update address and counter
+  add rsi, 0x08
+  dec rcx
   jnz loop_xor
 
   popfq
+  pop rdi
+  pop rsi
   pop rdx
   pop rcx
   pop rbx
+  pop rax
+
 body:
 `
 
-type headerContext struct {
-	NumLoop   int
-	CryptoKey uint64
+type miniDecoderCtx struct {
+	Seed uint64
+	Key  uint64
+
+	NumLoopStub  int32
+	NumLoopMaskA int32
+	NumLoopMaskB int32
+
+	OffsetT int32
+	OffsetA int32
+	OffsetS int32
 }
 
 var x86asm = `
