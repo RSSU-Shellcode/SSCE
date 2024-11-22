@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"math"
 	"math/rand"
 	"text/template"
 	"time"
@@ -119,36 +120,50 @@ func (e *Encoder) Encode(shellcode []byte, arch int, opts *Options) ([]byte, err
 	// append garbage data to tail for prevent brute-force
 	output = append(output, e.randBytes(opts.NumTailInst)...)
 
-	return output, nil
-	// tpl, err := template.New("asm_src").Funcs(template.FuncMap{
-	// 	"db":  toDB,
-	// 	"hex": toHex,
-	// 	"igi": e.insertGarbageInst,
-	// }).Parse(x64XSRL)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("invalid assembly source template: %s", err)
-	// }
-	//
-	// key := e.rand.Uint64()
-	// body := e.miniXOR(output, key)
-	// ctx := headerContext{
-	// 	NumLoop:   len(body) / 8,
-	// 	CryptoKey: key,
-	// }
-	//
-	// buf := bytes.NewBuffer(make([]byte, 0, 2048+5*len(shellcode)))
-	// err = tpl.Execute(buf, &ctx)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to build assembly source: %s", err)
-	// }
-	//
-	// // fmt.Println(buf)
-	//
-	// inst, err := e.engine64.Assemble(buf.String(), 0)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// return append(inst, body...), nil
+	// return output, nil
+	tpl, err := template.New("asm_src").Funcs(template.FuncMap{
+		"db":  toDB,
+		"hex": toHex,
+		"igi": e.insertGarbageInst,
+	}).Parse(x64MiniDecoder)
+	if err != nil {
+		return nil, fmt.Errorf("invalid assembly source template: %s", err)
+	}
+
+	seed := e.rand.Uint64()
+	key := e.rand.Uint64()
+	body := e.xsrl(output, seed, key)
+	numLoopMaskA := e.rand.Int31()
+	numLoopMaskB := e.rand.Int31()
+	numLoopStub := int32(len(body)/8) ^ numLoopMaskA ^ numLoopMaskB
+	offsetT := e.rand.Int31n(math.MaxInt32/4 - 4096)
+	offsetA := e.rand.Int31n(math.MaxInt32/4 - 8192)
+	offsetS := offsetT + offsetA
+	ctx := miniDecoderCtx{
+		Seed: seed,
+		Key:  key,
+
+		NumLoopStub:  numLoopStub,
+		NumLoopMaskA: numLoopMaskA,
+		NumLoopMaskB: numLoopMaskB,
+
+		OffsetT: offsetT,
+		OffsetA: offsetA,
+		OffsetS: offsetS,
+	}
+
+	buf := bytes.NewBuffer(make([]byte, 0, 512+len(output)))
+	err = tpl.Execute(buf, &ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build assembly source: %s", err)
+	}
+
+	inst, err := e.engine64.Assemble(buf.String(), 0)
+	if err != nil {
+		return nil, err
+	}
+
+	return append(inst, body...), nil
 }
 
 func (e *Encoder) encode(shellcode []byte, arch int, opts *Options) ([]byte, error) {
