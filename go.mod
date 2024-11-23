@@ -4,8 +4,8 @@ go 1.22
 
 require (
 	github.com/davecgh/go-spew v1.1.1
-	github.com/For-ACGN/go-keystone v1.0.2
-	github.com/stretchr/testify v1.9.0
+	github.com/For-ACGN/go-keystone v1.0.3
+	github.com/stretchr/testify v1.10.0
 	golang.org/x/sys v0.27.0
 )
 
