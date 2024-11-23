@@ -9,7 +9,63 @@ import (
 var x86MiniDecoder = `
 .code32
 
-decoder:
+header:
+  // eax store the random seed
+  // ebx store the crypto key
+  // ecx store the loop times
+  // edx store the xor shift median
+  // esi store the body address
+  // edi store the current value
+
+  // save context
+  pushad
+  pushfd
+
+  mov eax, {{hex .Seed}}
+  mov ebx, {{hex .Key}}
+
+  // prevent continuous 0x00
+  mov ecx, {{hex .NumLoopStub}}
+  xor ecx, {{hex .NumLoopMaskA}}
+  xor ecx, {{hex .NumLoopMaskB}}
+
+  // calculate the body address
+  lea rsi, [rip + body + {{hex .OffsetT}}]
+  // prevent continuous 0x00
+  add rsi, {{hex .OffsetA}}
+  sub rsi, {{hex .OffsetS}}
+
+ loop_xor:
+  // xor block data
+  mov edi, [esi]
+  ror edi, 5
+  xor edi, eax
+  rol edi, 17
+  xor edi, ebx
+  mov [esi], edi
+
+  // xor shift 32
+  // seed ^= seed << 13
+  // seed ^= seed >> 17
+  // seed ^= seed << 5
+  mov edx, eax
+  shl edx, 13
+  xor eax, edx
+  mov edx, eax
+  shr edx, 17
+  xor eax, edx
+  mov edx, eax
+  shl edx, 5
+  xor eax, edx
+
+  // update address and counter
+  add esi, 4
+  dec ecx
+  jnz loop_xor
+
+  // restore context
+  popfd
+  popad
 
 body:
 `
@@ -49,15 +105,16 @@ header:
   xor rdi, rbx
   mov [rsi], rdi
 
+  // xor shift 64
   // seed ^= seed << 13
+  // seed ^= seed >> 7
+  // seed ^= seed << 17
   mov rdx, rax
   shl rdx, 13
   xor rax, rdx
-  // seed ^= seed >> 7
   mov rdx, rax
   shr rdx, 7
   xor rax, rdx
-  // seed ^= seed << 17
   mov rdx, rax
   shl rdx, 17
   xor rax, rdx
@@ -79,8 +136,8 @@ body:
 `
 
 type miniDecoderCtx struct {
-	Seed uint64
-	Key  uint64
+	Seed interface{}
+	Key  interface{}
 
 	NumLoopStub  int32
 	NumLoopMaskA int32
