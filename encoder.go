@@ -89,11 +89,17 @@ func (e *Encoder) Encode(shellcode []byte, arch int, opts *Options) ([]byte, err
 	if opts == nil {
 		opts = new(Options)
 	}
+	e.arch = arch
+	e.opts = opts
 	// append tail for prevent brute-force
 	tail := e.randBytes(64 + len(shellcode)/10)
 	shellcode = append(shellcode, tail...)
 	// encode the raw shellcode
-	output, err := e.encode(shellcode, arch, opts)
+	output, err := e.encode(shellcode)
+	if err != nil {
+		return nil, err
+	}
+	output, err = e.addMiniDecoder(output)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +112,7 @@ func (e *Encoder) Encode(shellcode []byte, arch int, opts *Options) ([]byte, err
 		numIter = 0
 	}
 	for i := 0; i < numIter; i++ {
-		output, err = e.encode(output, arch, opts)
+		output, err = e.addMiniDecoder(output)
 		if err != nil {
 			return nil, err
 		}
@@ -119,54 +125,10 @@ func (e *Encoder) Encode(shellcode []byte, arch int, opts *Options) ([]byte, err
 	}
 	// append garbage data to tail for prevent brute-force
 	output = append(output, e.randBytes(opts.NumTailInst)...)
-
-	// return output, nil
-	tpl, err := template.New("asm_src").Funcs(template.FuncMap{
-		"db":  toDB,
-		"hex": toHex,
-		"igi": e.insertGarbageInst,
-	}).Parse(x64MiniDecoder)
-	if err != nil {
-		return nil, fmt.Errorf("invalid assembly source template: %s", err)
-	}
-
-	seed := e.rand.Uint64()
-	key := e.rand.Uint64()
-	body := e.xsrl(output, seed, key)
-	numLoopMaskA := e.rand.Int31()
-	numLoopMaskB := e.rand.Int31()
-	numLoopStub := int32(len(body)/8) ^ numLoopMaskA ^ numLoopMaskB
-	offsetT := e.rand.Int31n(math.MaxInt32/4 - 4096)
-	offsetA := e.rand.Int31n(math.MaxInt32/4 - 8192)
-	offsetS := offsetT + offsetA
-	ctx := miniDecoderCtx{
-		Seed: seed,
-		Key:  key,
-
-		NumLoopStub:  numLoopStub,
-		NumLoopMaskA: numLoopMaskA,
-		NumLoopMaskB: numLoopMaskB,
-
-		OffsetT: offsetT,
-		OffsetA: offsetA,
-		OffsetS: offsetS,
-	}
-
-	buf := bytes.NewBuffer(make([]byte, 0, 512+len(output)))
-	err = tpl.Execute(buf, &ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build assembly source: %s", err)
-	}
-
-	inst, err := e.engine64.Assemble(buf.String(), 0)
-	if err != nil {
-		return nil, err
-	}
-
-	return append(inst, body...), nil
+	return output, nil
 }
 
-func (e *Encoder) encode(shellcode []byte, arch int, opts *Options) ([]byte, error) {
+func (e *Encoder) encode(shellcode []byte) ([]byte, error) {
 	cryptoKey := e.randBytes(32)
 	var (
 		engine *keystone.Engine
@@ -176,7 +138,7 @@ func (e *Encoder) encode(shellcode []byte, arch int, opts *Options) ([]byte, err
 		eraserStubKey    interface{}
 		cryptoKeyStubKey interface{}
 	)
-	switch arch {
+	switch e.arch {
 	case 32:
 		engine = e.engine32
 		asmTpl = x86asm
@@ -194,8 +156,6 @@ func (e *Encoder) encode(shellcode []byte, arch int, opts *Options) ([]byte, err
 	default:
 		return nil, errors.New("invalid architecture")
 	}
-	e.arch = arch
-	e.opts = opts
 	e.key = cryptoKey
 	e.decoderStubKey = decoderStubKey
 	e.eraserStubKey = eraserStubKey
@@ -223,7 +183,7 @@ func (e *Encoder) encode(shellcode []byte, arch int, opts *Options) ([]byte, err
 		CryptoKeyLen:     len(cryptoKey),
 		ShellcodeLen:     len(shellcode),
 	}
-	if opts.SaveContext {
+	if e.opts.SaveContext {
 		ctx.SaveContext = e.saveContext()
 		ctx.RestoreContext = e.restoreContext()
 	}
@@ -240,7 +200,52 @@ func (e *Encoder) encode(shellcode []byte, arch int, opts *Options) ([]byte, err
 	return inst, nil
 }
 
+func (e *Encoder) addMiniDecoder(input []byte) ([]byte, error) {
+	tpl, err := template.New("mini_decoder").Funcs(template.FuncMap{
+		"db":  toDB,
+		"hex": toHex,
+		"igi": e.insertGarbageInst,
+	}).Parse(x64MiniDecoder)
+	if err != nil {
+		return nil, fmt.Errorf("invalid assembly source template: %s", err)
+	}
+	seed := e.rand.Uint64()
+	key := e.rand.Uint64()
+	body := e.xsrl(input, seed, key)
+	numLoopMaskA := e.rand.Int31()
+	numLoopMaskB := e.rand.Int31()
+	numLoopStub := int32(len(body)/8) ^ numLoopMaskA ^ numLoopMaskB
+	offsetT := e.rand.Int31n(math.MaxInt32/4 - 4096)
+	offsetA := e.rand.Int31n(math.MaxInt32/4 - 8192)
+	offsetS := offsetT + offsetA
+	ctx := miniDecoderCtx{
+		Seed: seed,
+		Key:  key,
+
+		NumLoopStub:  numLoopStub,
+		NumLoopMaskA: numLoopMaskA,
+		NumLoopMaskB: numLoopMaskB,
+
+		OffsetT: offsetT,
+		OffsetA: offsetA,
+		OffsetS: offsetS,
+	}
+	buf := bytes.NewBuffer(make([]byte, 0, 512+len(input)))
+	err = tpl.Execute(buf, &ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build assembly source: %s", err)
+	}
+	inst, err := e.engine64.Assemble(buf.String(), 0)
+	if err != nil {
+		return nil, err
+	}
+	return append(inst, body...), nil
+}
+
 func (e *Encoder) insertGarbageInst() string {
+	if e.opts.NoGarbage {
+		return ""
+	}
 	return ";" + toDB(e.garbageInst())
 }
 
