@@ -14,16 +14,17 @@ import (
 
 // Encoder is a simple shellcode encoder.
 type Encoder struct {
-	engine32 *keystone.Engine
-	engine64 *keystone.Engine
-	rand     *rand.Rand
+	rand *rand.Rand
+
+	// assembler
+	engine *keystone.Engine
 
 	// context arguments
 	arch int
 	opts *Options
 	key  []byte
 
-	// for xor stubs
+	// for mini_xor stubs
 	decoderStubKey   interface{}
 	eraserStubKey    interface{}
 	cryptoKeyStubKey interface{}
@@ -32,7 +33,7 @@ type Encoder struct {
 	contextSeq []int
 }
 
-// Options contains options about Encode.
+// Options contains options about encode shellcode.
 type Options struct {
 	NumIterator int
 	NumTailInst int
@@ -42,43 +43,13 @@ type Options struct {
 	NoGarbage   bool
 }
 
-// New is used to create a simple shellcode encoder.
-func New() (*Encoder, error) {
-	var ok bool
-	engine32, err := keystone.NewEngine(keystone.ARCH_X86, keystone.MODE_32)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if !ok {
-			_ = engine32.Close()
-		}
-	}()
-	engine64, err := keystone.NewEngine(keystone.ARCH_X86, keystone.MODE_64)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if !ok {
-			_ = engine64.Close()
-		}
-	}()
-	err = engine32.Option(keystone.OPT_SYNTAX, keystone.OPT_SYNTAX_INTEL)
-	if err != nil {
-		return nil, err
-	}
-	err = engine64.Option(keystone.OPT_SYNTAX, keystone.OPT_SYNTAX_INTEL)
-	if err != nil {
-		return nil, err
-	}
+// NewEncoder is used to create a simple shellcode encoder.
+func NewEncoder() *Encoder {
 	rd := rand.New(rand.NewSource(time.Now().UTC().UnixNano()))
 	encoder := Encoder{
-		engine32: engine32,
-		engine64: engine64,
-		rand:     rd,
+		rand: rd,
 	}
-	ok = true
-	return &encoder, nil
+	return &encoder
 }
 
 // Encode is used to encode input shellcode to a unique shellcode.
@@ -91,6 +62,15 @@ func (e *Encoder) Encode(shellcode []byte, arch int, opts *Options) ([]byte, err
 	}
 	e.arch = arch
 	e.opts = opts
+	// initialize keystone engine
+	err := e.initAssembler()
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize assembler: %s", err)
+	}
+	defer func() {
+		_ = e.engine.Close()
+		e.engine = nil
+	}()
 	// append tail for prevent brute-force
 	tail := e.randBytes(64 + len(shellcode)/10)
 	shellcode = append(shellcode, tail...)
@@ -125,13 +105,37 @@ func (e *Encoder) Encode(shellcode []byte, arch int, opts *Options) ([]byte, err
 	}
 	// append garbage data to tail for prevent brute-force
 	output = append(output, e.randBytes(opts.NumTailInst)...)
+
+	err = e.engine.Close()
+	if err != nil {
+		return nil, err
+	}
 	return output, nil
+}
+
+func (e *Encoder) initAssembler() error {
+	var err error
+	switch e.arch {
+	case 32:
+		e.engine, err = keystone.NewEngine(keystone.ARCH_X86, keystone.MODE_32)
+	case 64:
+		e.engine, err = keystone.NewEngine(keystone.ARCH_X86, keystone.MODE_64)
+	default:
+		return fmt.Errorf("invalid architecture: %d", e.arch)
+	}
+	if err != nil {
+		return err
+	}
+	err = e.engine.Option(keystone.OPT_SYNTAX, keystone.OPT_SYNTAX_INTEL)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (e *Encoder) encode(shellcode []byte) ([]byte, error) {
 	cryptoKey := e.randBytes(32)
 	var (
-		engine *keystone.Engine
 		asmTpl string
 
 		decoderStubKey   interface{}
@@ -140,14 +144,12 @@ func (e *Encoder) encode(shellcode []byte) ([]byte, error) {
 	)
 	switch e.arch {
 	case 32:
-		engine = e.engine32
 		asmTpl = x86asm
 		shellcode = encrypt32(shellcode, cryptoKey)
 		decoderStubKey = e.rand.Uint32()
 		eraserStubKey = e.rand.Uint32()
 		cryptoKeyStubKey = e.rand.Uint32()
 	case 64:
-		engine = e.engine64
 		asmTpl = x64asm
 		shellcode = encrypt64(shellcode, cryptoKey)
 		decoderStubKey = e.rand.Uint64()
@@ -192,7 +194,7 @@ func (e *Encoder) encode(shellcode []byte) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to build assembly source: %s", err)
 	}
-	inst, err := engine.Assemble(buf.String(), 0)
+	inst, err := e.engine.Assemble(buf.String(), 0)
 	if err != nil {
 		return nil, err
 	}
@@ -235,7 +237,7 @@ func (e *Encoder) addMiniDecoder(input []byte) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to build assembly source: %s", err)
 	}
-	inst, err := e.engine64.Assemble(buf.String(), 0)
+	inst, err := e.engine.Assemble(buf.String(), 0)
 	if err != nil {
 		return nil, err
 	}
@@ -251,10 +253,8 @@ func (e *Encoder) insertGarbageInst() string {
 
 // Close is used to close shellcode encoder.
 func (e *Encoder) Close() error {
-	err0 := e.engine32.Close()
-	err1 := e.engine64.Close()
-	if err1 != nil && err0 == nil {
-		err0 = err1
+	if e.engine == nil {
+		return nil
 	}
-	return err0
+	return e.engine.Close()
 }
