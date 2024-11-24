@@ -1,59 +1,51 @@
-//go:build windows
-
 package ssce
 
 import (
-	"os"
+	"net/http"
+	"net/http/pprof"
 	"runtime"
 	"syscall"
 	"testing"
 	"unsafe"
 
+	"github.com/For-ACGN/go-keystone"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/sys/windows"
 )
 
-var encoder *Encoder
-
-func TestMain(m *testing.M) {
-	var err error
-	encoder, err = New()
-	if err != nil {
-		panic(err)
-	}
-
-	code := m.Run()
-
-	err = encoder.Close()
-	if err != nil {
-		panic(err)
-	}
-
-	os.Exit(code)
-}
-
 func TestEncoderN(t *testing.T) {
-	for i := 0; i < 100; i++ {
-		asm := ".code64\n"
-		asm += "mov qword ptr [rcx], 0x64\n"
-		asm += "mov rax, 0x64\n"
-		asm += "ret\n"
-		shellcode, err := encoder.engine64.Assemble(asm, 0)
-		require.NoError(t, err)
+	asm := ".code64\n"
+	asm += "mov qword ptr [rcx], 0x64\n"
+	asm += "mov rax, 0x64\n"
+	asm += "ret\n"
+	engine, err := keystone.NewEngine(keystone.ARCH_X86, keystone.MODE_64)
+	require.NoError(t, err)
+	shellcode, err := engine.Assemble(asm, 0)
+	require.NoError(t, err)
+	err = engine.Close()
+	require.NoError(t, err)
+
+	pprof.Handler("/")
+	go http.ListenAndServe("127.0.0.1:8080", nil)
+
+	for i := 0; i < 1000; i++ {
+		encoder := NewEncoder()
 
 		opts := &Options{
 			NoIterator: true,
 			NoGarbage:  true,
 		}
-		shellcode, err = encoder.Encode(shellcode, 64, opts)
+		sc, err := encoder.Encode(shellcode, 64, opts)
 		require.NoError(t, err)
 		// spew.Dump(shellcode)
 
-		if runtime.GOARCH != "amd64" {
+		err = encoder.Close()
+		require.NoError(t, err)
+
+		if runtime.GOOS != "windows" || runtime.GOARCH != "amd64" {
 			return
 		}
-		addr := loadShellcode(t, shellcode)
+		addr := loadShellcode(t, sc)
 		var val int
 		ret, _, _ := syscall.SyscallN(addr, (uintptr)(unsafe.Pointer(&val)))
 		require.Equal(t, 0x64, val)
@@ -67,9 +59,14 @@ func TestEncoder(t *testing.T) {
 		asm += "mov qword ptr [rcx], 0x64\n"
 		asm += "mov rax, 0x64\n"
 		asm += "ret\n"
-		shellcode, err := encoder.engine64.Assemble(asm, 0)
+		engine, err := keystone.NewEngine(keystone.ARCH_X86, keystone.MODE_64)
+		require.NoError(t, err)
+		shellcode, err := engine.Assemble(asm, 0)
+		require.NoError(t, err)
+		err = engine.Close()
 		require.NoError(t, err)
 
+		encoder := NewEncoder()
 		opts := &Options{
 			NoIterator: true,
 			NoGarbage:  true,
@@ -78,7 +75,10 @@ func TestEncoder(t *testing.T) {
 		require.NoError(t, err)
 		spew.Dump(shellcode)
 
-		if runtime.GOARCH != "amd64" {
+		err = encoder.Close()
+		require.NoError(t, err)
+
+		if runtime.GOOS != "windows" || runtime.GOARCH != "amd64" {
 			return
 		}
 		addr := loadShellcode(t, shellcode)
@@ -92,14 +92,22 @@ func TestEncoder(t *testing.T) {
 		asm := ".code32\n"
 		asm += "mov eax, 0x86\n"
 		asm += "ret\n"
-		shellcode, err := encoder.engine64.Assemble(asm, 0)
+		engine, err := keystone.NewEngine(keystone.ARCH_X86, keystone.MODE_32)
+		require.NoError(t, err)
+		shellcode, err := engine.Assemble(asm, 0)
+		require.NoError(t, err)
+		err = engine.Close()
 		require.NoError(t, err)
 
+		encoder := NewEncoder()
 		shellcode, err = encoder.Encode(shellcode, 32, nil)
 		require.NoError(t, err)
 		spew.Dump(shellcode)
 
-		if runtime.GOARCH != "386" {
+		err = encoder.Close()
+		require.NoError(t, err)
+
+		if runtime.GOOS != "windows" || runtime.GOARCH != "386" {
 			return
 		}
 		addr := loadShellcode(t, shellcode)
@@ -107,15 +115,4 @@ func TestEncoder(t *testing.T) {
 		ret, _, _ := syscall.SyscallN(addr, (uintptr)(unsafe.Pointer(&val)))
 		require.Equal(t, 0x86, int(ret))
 	})
-}
-
-func loadShellcode(t *testing.T, sc []byte) uintptr {
-	size := uintptr(len(sc))
-	mType := uint32(windows.MEM_COMMIT | windows.MEM_RESERVE)
-	mProtect := uint32(windows.PAGE_EXECUTE_READWRITE)
-	scAddr, err := windows.VirtualAlloc(0, size, mType, mProtect)
-	require.NoError(t, err)
-	dst := unsafe.Slice((*byte)(unsafe.Pointer(scAddr)), size)
-	copy(dst, sc)
-	return scAddr
 }

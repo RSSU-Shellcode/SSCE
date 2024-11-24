@@ -24,10 +24,10 @@ type Encoder struct {
 	opts *Options
 	key  []byte
 
-	// for mini_xor stubs
-	decoderStubKey   interface{}
-	eraserStubKey    interface{}
-	cryptoKeyStubKey interface{}
+	// stub keys for xor stubs
+	decoderSK   interface{}
+	eraserSK    interface{}
+	cryptoKeySK interface{}
 
 	// save and restore context
 	contextSeq []int
@@ -159,9 +159,9 @@ func (e *Encoder) encode(shellcode []byte) ([]byte, error) {
 		return nil, errors.New("invalid architecture")
 	}
 	e.key = cryptoKey
-	e.decoderStubKey = decoderStubKey
-	e.eraserStubKey = eraserStubKey
-	e.cryptoKeyStubKey = cryptoKeyStubKey
+	e.decoderSK = decoderStubKey
+	e.eraserSK = eraserStubKey
+	e.cryptoKeySK = cryptoKeyStubKey
 
 	tpl, err := template.New("asm_src").Funcs(template.FuncMap{
 		"db":  toDB,
