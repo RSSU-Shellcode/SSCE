@@ -9,14 +9,14 @@ import (
 var x86MiniDecoder = `
 .code32
 
-header:
-  // eax store the random seed
-  // ebx store the crypto key
-  // ecx store the loop times
-  // edx store the xor shift median
-  // esi store the body address
-  // edi store the current value
+// eax store the random seed
+// ebx store the crypto key
+// ecx store the loop times
+// edx store the xor shift median
+// esi store the body address
+// edi store the current value
 
+header:
   // save context
   pushad
   pushfd
@@ -30,10 +30,12 @@ header:
   xor ecx, {{hex .NumLoopMaskB}}
 
   // calculate the body address
-  lea rsi, [rip + body + {{hex .OffsetT}}]
-  // prevent continuous 0x00
-  add rsi, {{hex .OffsetA}}
-  sub rsi, {{hex .OffsetS}}
+  call get_eip
+ get_eip:
+  pop esi
+  add esi, body - get_eip + {{hex .OffsetT}}
+  add esi, {{hex .OffsetA}}
+  sub esi, {{hex .OffsetS}}
 
  loop_xor:
   // xor block data
@@ -92,7 +94,6 @@ header:
 
   // calculate the body address
   lea rsi, [rip + body + {{hex .OffsetT}}]
-  // prevent continuous 0x00
   add rsi, {{hex .OffsetA}}
   sub rsi, {{hex .OffsetS}}
 
