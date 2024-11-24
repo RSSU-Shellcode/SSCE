@@ -1,5 +1,5 @@
-github.com/For-ACGN/go-keystone v1.0.3 h1:YrHLz+TWEpI5wgjREbg9ROW4PjTb6XoUxs5FCG+S1jE=
-github.com/For-ACGN/go-keystone v1.0.3/go.mod h1:jSGAeWgvqbZBP14GaK3pYjouXu8e8lFLgFX1nRVNWRE=
+github.com/For-ACGN/go-keystone v1.0.4 h1:RzXUlJxell0sgivQb10rN6rii7H93g83JZ+u/TNiBt4=
+github.com/For-ACGN/go-keystone v1.0.4/go.mod h1:jSGAeWgvqbZBP14GaK3pYjouXu8e8lFLgFX1nRVNWRE=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
