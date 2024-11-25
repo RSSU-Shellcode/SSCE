@@ -1,8 +1,6 @@
 package ssce
 
 import (
-	"net/http"
-	"net/http/pprof"
 	"runtime"
 	"syscall"
 	"testing"
@@ -25,19 +23,15 @@ func TestEncoderN(t *testing.T) {
 	err = engine.Close()
 	require.NoError(t, err)
 
-	pprof.Handler("/")
-	go http.ListenAndServe("127.0.0.1:8080", nil)
-
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 100; i++ {
 		encoder := NewEncoder()
-
 		opts := &Options{
 			NoIterator: true,
-			NoGarbage:  true,
+			NoGarbage:  false,
 		}
 		sc, err := encoder.Encode(shellcode, 64, opts)
 		require.NoError(t, err)
-		// spew.Dump(shellcode)
+		spew.Dump(sc)
 
 		err = encoder.Close()
 		require.NoError(t, err)
@@ -100,7 +94,12 @@ func TestEncoder(t *testing.T) {
 		require.NoError(t, err)
 
 		encoder := NewEncoder()
-		shellcode, err = encoder.Encode(shellcode, 32, nil)
+		opts := &Options{
+			MinifyMode: true,
+			NoIterator: true,
+			NoGarbage:  false,
+		}
+		shellcode, err = encoder.Encode(shellcode, 32, opts)
 		require.NoError(t, err)
 		spew.Dump(shellcode)
 
