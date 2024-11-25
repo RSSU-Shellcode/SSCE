@@ -100,16 +100,11 @@ func (e *Encoder) Encode(shellcode []byte, arch int, opts *Options) ([]byte, err
 	// padding garbage at the tail
 	times := 8 + e.rand.Intn((numIter+1)*16)
 	if !opts.NoGarbage {
-		num := e.rand.Intn(16 * times)
-		output = append(output, e.randBytes(num)...)
+		size := e.rand.Intn(16 * times)
+		output = append(output, e.randBytes(size)...)
 	}
 	// append garbage data to tail for prevent brute-force
 	output = append(output, e.randBytes(opts.NumTailInst)...)
-
-	err = e.engine.Close()
-	if err != nil {
-		return nil, err
-	}
 	return output, nil
 }
 
@@ -136,54 +131,52 @@ func (e *Encoder) initAssembler() error {
 func (e *Encoder) encode(shellcode []byte) ([]byte, error) {
 	cryptoKey := e.randBytes(32)
 	var (
-		asmTpl string
-
-		decoderStubKey   interface{}
-		eraserStubKey    interface{}
-		cryptoKeyStubKey interface{}
+		loader      string
+		decoderSK   interface{}
+		eraserSK    interface{}
+		cryptoKeySK interface{}
 	)
 	switch e.arch {
 	case 32:
-		asmTpl = x86asm
+		loader = x86Loader
+		decoderSK = e.rand.Uint32()
+		eraserSK = e.rand.Uint32()
+		cryptoKeySK = e.rand.Uint32()
 		shellcode = encrypt32(shellcode, cryptoKey)
-		decoderStubKey = e.rand.Uint32()
-		eraserStubKey = e.rand.Uint32()
-		cryptoKeyStubKey = e.rand.Uint32()
 	case 64:
-		asmTpl = x64asm
+		loader = x64Loader
+		decoderSK = e.rand.Uint64()
+		eraserSK = e.rand.Uint64()
+		cryptoKeySK = e.rand.Uint64()
 		shellcode = encrypt64(shellcode, cryptoKey)
-		decoderStubKey = e.rand.Uint64()
-		eraserStubKey = e.rand.Uint64()
-		cryptoKeyStubKey = e.rand.Uint64()
 	default:
 		return nil, errors.New("invalid architecture")
 	}
 	e.key = cryptoKey
-	e.decoderSK = decoderStubKey
-	e.eraserSK = eraserStubKey
-	e.cryptoKeySK = cryptoKeyStubKey
+	e.decoderSK = decoderSK
+	e.eraserSK = eraserSK
+	e.cryptoKeySK = cryptoKeySK
 
 	tpl, err := template.New("asm_src").Funcs(template.FuncMap{
 		"db":  toDB,
 		"hex": toHex,
 		"igi": e.insertGarbageInst,
-	}).Parse(asmTpl)
+	}).Parse(loader)
 	if err != nil {
 		return nil, fmt.Errorf("invalid assembly source template: %s", err)
 	}
-
-	ctx := asmContext{
-		JumpShort:        e.garbageJumpShort(64),
-		SaveRegister:     e.saveContext(),
-		RestoreRegister:  e.restoreContext(),
-		DecoderStubKey:   decoderStubKey,
-		EraserStubKey:    eraserStubKey,
-		CryptoKeyStubKey: cryptoKeyStubKey,
-		DecoderStub:      e.decoderStub(),
-		EraserStub:       e.eraserStub(),
-		CryptoKeyStub:    e.cryptoKeyStub(),
-		CryptoKeyLen:     len(cryptoKey),
-		ShellcodeLen:     len(shellcode),
+	ctx := loaderCtx{
+		JumpShort:       e.garbageJumpShort(64),
+		SaveRegister:    e.saveContext(),
+		RestoreRegister: e.restoreContext(),
+		DecoderSK:       decoderSK,
+		EraserSK:        eraserSK,
+		CryptoKeySK:     cryptoKeySK,
+		DecoderStub:     e.decoderStub(),
+		EraserStub:      e.eraserStub(),
+		CryptoKeyStub:   e.cryptoKeyStub(),
+		CryptoKeyLen:    len(cryptoKey),
+		ShellcodeLen:    len(shellcode),
 	}
 	if e.opts.SaveContext {
 		ctx.SaveContext = e.saveContext()
@@ -203,20 +196,27 @@ func (e *Encoder) encode(shellcode []byte) ([]byte, error) {
 }
 
 func (e *Encoder) addMiniDecoder(input []byte) ([]byte, error) {
+	var miniDecoder string
+	switch e.arch {
+	case 32:
+		miniDecoder = x86MiniDecoder
+	case 64:
+		miniDecoder = x64MiniDecoder
+	}
 	tpl, err := template.New("mini_decoder").Funcs(template.FuncMap{
 		"db":  toDB,
 		"hex": toHex,
 		"igi": e.insertGarbageInst,
-	}).Parse(x64MiniDecoder)
+	}).Parse(miniDecoder)
 	if err != nil {
 		return nil, fmt.Errorf("invalid assembly source template: %s", err)
 	}
-	seed := e.rand.Uint64()
-	key := e.rand.Uint64()
+	seed := e.rand.Uint32()
+	key := e.rand.Uint32()
 	body := e.xsrl(input, seed, key)
 	numLoopMaskA := e.rand.Int31()
 	numLoopMaskB := e.rand.Int31()
-	numLoopStub := int32(len(body)/8) ^ numLoopMaskA ^ numLoopMaskB
+	numLoopStub := int32(len(body)/4) ^ numLoopMaskA ^ numLoopMaskB
 	offsetT := e.rand.Int31n(math.MaxInt32/4 - 4096)
 	offsetA := e.rand.Int31n(math.MaxInt32/4 - 8192)
 	offsetS := offsetT + offsetA
