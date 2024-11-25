@@ -6,6 +6,9 @@ import (
 	"strings"
 )
 
+// The role of the mini decoder is to eliminate the
+// instruction sequence features as much as possible.
+
 var x86MiniDecoder = `
 .code32
 
@@ -21,19 +24,18 @@ header:
   pushad                                       {{igi}}
   pushfd                                       {{igi}}
 
-  mov eax, {{hex .Seed}}
-  mov ebx, {{hex .Key}}
+  mov eax, {{hex .Seed}}                       {{igi}}
+  mov ebx, {{hex .Key}}                        {{igi}}
 
   // prevent continuous 0x00
-  mov ecx, {{hex .NumLoopStub}}
-  xor ecx, {{hex .NumLoopMaskA}}
-  xor ecx, {{hex .NumLoopMaskB}}
+  mov ecx, {{hex .NumLoopStub}}                {{igi}}
+  xor ecx, {{hex .NumLoopMaskA}}               {{igi}}
+  xor ecx, {{hex .NumLoopMaskB}}               {{igi}}
 
-  // calculate the body address
-  call get_eip                                 {{igi}}
- get_eip:                                      {{igi}}
-  pop esi                                      {{igi}}
-  add esi, body - get_eip + {{hex .OffsetT}}   {{igi}}
+  // for prevent "E8 00 00 00 00"
+  call calc_body_addr
+ flag_CEA:                                     {{igi}}
+  add esi, body - flag_CEA + {{hex .OffsetT}}  {{igi}}
   add esi, {{hex .OffsetA}}                    {{igi}}
   sub esi, {{hex .OffsetS}}                    {{igi}}
 
@@ -69,6 +71,13 @@ header:
   popfd                                        {{igi}}
   popad                                        {{igi}}
 
+  // go to the shellcode body
+  jmp body                                     {{igi}}
+calc_body_addr:
+  pop esi                                      {{igi}}
+  push esi                                     {{igi}}
+  ret                                          {{igi}}
+
 body:
 `
 
@@ -94,13 +103,13 @@ header:
   push rdi                                     {{igi}}
   pushfq                                       {{igi}}
 
-  mov eax, {{hex .Seed}}
-  mov ebx, {{hex .Key}}
+  mov eax, {{hex .Seed}}                       {{igi}}
+  mov ebx, {{hex .Key}}                        {{igi}}
 
   // prevent continuous 0x00
-  mov ecx, {{hex .NumLoopStub}}
-  xor ecx, {{hex .NumLoopMaskA}}
-  xor ecx, {{hex .NumLoopMaskB}}
+  mov ecx, {{hex .NumLoopStub}}                {{igi}}
+  xor ecx, {{hex .NumLoopMaskA}}               {{igi}}
+  xor ecx, {{hex .NumLoopMaskB}}               {{igi}}
 
   // calculate the body address
   lea rsi, [rip + body + {{hex .OffsetT}}]     {{igi}}
@@ -159,14 +168,18 @@ type miniDecoderCtx struct {
 	OffsetS int32
 }
 
-var x86asm = `
+// The role of the shellcode loader is to execute the shellcode
+// without destroying the CPU context, and to erase the loader
+// before execution and the shellcode after execution.
+
+var x86Loader = `
 .code32
 
 entry:
   ret
 `
 
-var x64asm = `
+var x64Loader = `
 .code64
 
 entry:
@@ -297,7 +310,7 @@ crypto_key_stub:
 shellcode_stub:
 `
 
-type asmContext struct {
+type loaderCtx struct {
 	JumpShort      []byte
 	SaveContext    []byte
 	RestoreContext []byte
