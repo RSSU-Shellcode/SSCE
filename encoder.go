@@ -31,12 +31,16 @@ type Encoder struct {
 
 	// save and restore context
 	contextSeq []int
+
+	// for select random register
+	regBox map[string]struct{}
 }
 
 // Options contains options about encode shellcode.
 type Options struct {
 	NumIterator int
 	NumTailInst int
+	MinifyMode  bool
 	SaveContext bool
 	EraseInst   bool
 	NoIterator  bool
@@ -71,9 +75,6 @@ func (e *Encoder) Encode(shellcode []byte, arch int, opts *Options) ([]byte, err
 		_ = e.engine.Close()
 		e.engine = nil
 	}()
-	// append tail for prevent brute-force
-	tail := e.randBytes(64 + len(shellcode)/10)
-	shellcode = append(shellcode, tail...)
 	// encode the raw shellcode
 	output, err := e.encode(shellcode)
 	if err != nil {
@@ -98,13 +99,15 @@ func (e *Encoder) Encode(shellcode []byte, arch int, opts *Options) ([]byte, err
 		}
 	}
 	// padding garbage at the tail
-	times := 8 + e.rand.Intn((numIter+1)*16)
+	times := 8 + e.rand.Intn((numIter+1)*4)
 	if !opts.NoGarbage {
 		size := e.rand.Intn(16 * times)
 		output = append(output, e.randBytes(size)...)
 	}
 	// append garbage data to tail for prevent brute-force
 	output = append(output, e.randBytes(opts.NumTailInst)...)
+	// append garbage data to output prefix
+	output = append(e.garbageInst(), output...)
 	return output, nil
 }
 
@@ -129,6 +132,12 @@ func (e *Encoder) initAssembler() error {
 }
 
 func (e *Encoder) encode(shellcode []byte) ([]byte, error) {
+	if e.opts.MinifyMode {
+		return shellcode, nil
+	}
+	// append tail for prevent brute-force
+	tail := e.randBytes(64 + len(shellcode)/10)
+	shellcode = append(shellcode, tail...)
 	cryptoKey := e.randBytes(32)
 	var (
 		loader      string
@@ -220,6 +229,7 @@ func (e *Encoder) addMiniDecoder(input []byte) ([]byte, error) {
 	offsetT := e.rand.Int31n(math.MaxInt32/4 - 4096)
 	offsetA := e.rand.Int31n(math.MaxInt32/4 - 8192)
 	offsetS := offsetT + offsetA
+	e.initRegisterBox()
 	ctx := miniDecoderCtx{
 		Seed: seed,
 		Key:  key,
@@ -231,6 +241,13 @@ func (e *Encoder) addMiniDecoder(input []byte) ([]byte, error) {
 		OffsetT: offsetT,
 		OffsetA: offsetA,
 		OffsetS: offsetS,
+
+		EAX: e.selectRegister(),
+		EBX: e.selectRegister(),
+		ECX: e.selectRegister(),
+		EDX: e.selectRegister(),
+		ESI: e.selectRegister(),
+		EDI: e.selectRegister(),
 	}
 	buf := bytes.NewBuffer(make([]byte, 0, 512+len(input)))
 	err = tpl.Execute(buf, &ctx)
@@ -242,6 +259,34 @@ func (e *Encoder) addMiniDecoder(input []byte) ([]byte, error) {
 		return nil, err
 	}
 	return append(inst, body...), nil
+}
+
+func (e *Encoder) initRegisterBox() {
+	switch e.arch {
+	case 32:
+		e.regBox = map[string]struct{}{
+			"eax": {}, "ebx": {}, "ecx": {},
+			"edx": {}, "esi": {}, "edi": {},
+		}
+	case 64:
+		e.regBox = map[string]struct{}{
+			"rax": {}, "rbx": {}, "rcx": {}, "rdx": {},
+			"rsi": {}, "rdi": {},
+			"r8": {}, "r9": {}, "r10": {}, "r11": {},
+			"r12": {}, "r13": {}, "r14": {}, "r15": {},
+		}
+	}
+}
+
+func (e *Encoder) selectRegister() string {
+	n := 1 + e.rand.Intn(len(e.regBox))
+	var reg string
+	for i := 0; i < n; i++ {
+		for reg = range e.regBox {
+		}
+	}
+	delete(e.regBox, reg)
+	return reg
 }
 
 func (e *Encoder) insertGarbageInst() string {
