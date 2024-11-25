@@ -24,47 +24,47 @@ header:
   pushad                                       {{igi}}
   pushfd                                       {{igi}}
 
-  mov eax, {{hex .Seed}}                       {{igi}}
-  mov ebx, {{hex .Key}}                        {{igi}}
+  mov {{.EAX}}, {{hex .Seed}}                  {{igi}}
+  mov {{.EBX}}, {{hex .Key}}                   {{igi}}
 
   // prevent continuous 0x00
-  mov ecx, {{hex .NumLoopStub}}                {{igi}}
-  xor ecx, {{hex .NumLoopMaskA}}               {{igi}}
-  xor ecx, {{hex .NumLoopMaskB}}               {{igi}}
+  mov {{.ECX}}, {{hex .NumLoopStub}}           {{igi}}
+  xor {{.ECX}}, {{hex .NumLoopMaskA}}          {{igi}}
+  xor {{.ECX}}, {{hex .NumLoopMaskB}}          {{igi}}
 
   // for prevent "E8 00 00 00 00"
   call calc_body_addr
- flag_CEA:                                     {{igi}}
-  add esi, body - flag_CEA + {{hex .OffsetT}}  {{igi}}
-  add esi, {{hex .OffsetA}}                    {{igi}}
-  sub esi, {{hex .OffsetS}}                    {{igi}}
+ flag_CEA:                                          {{igi}}
+  add {{.ESI}}, body - flag_CEA + {{hex .OffsetT}}  {{igi}}
+  add {{.ESI}}, {{hex .OffsetA}}                    {{igi}}
+  sub {{.ESI}}, {{hex .OffsetS}}                    {{igi}}
 
  loop_xor:
   // xor block data
-  mov edi, [esi]                               {{igi}}
-  ror edi, 5                                   {{igi}}
-  xor edi, eax                                 {{igi}}
-  rol edi, 17                                  {{igi}}
-  xor edi, ebx                                 {{igi}}
-  mov [esi], edi                               {{igi}}
+  mov {{.EDI}}, [{{.ESI}}]                     {{igi}}
+  ror {{.EDI}}, 5                              {{igi}}
+  xor {{.EDI}}, {{.EAX}}                       {{igi}}
+  rol {{.EDI}}, 17                             {{igi}}
+  xor {{.EDI}}, {{.EBX}}                       {{igi}}
+  mov [{{.ESI}}], {{.EDI}}                     {{igi}}
 
   // xor shift 32
   // seed ^= seed << 13
   // seed ^= seed >> 17
   // seed ^= seed << 5
-  mov edx, eax                                 {{igi}}
-  shl edx, 13                                  {{igi}}
-  xor eax, edx                                 {{igi}}
-  mov edx, eax                                 {{igi}}
-  shr edx, 17                                  {{igi}}
-  xor eax, edx                                 {{igi}}
-  mov edx, eax                                 {{igi}}
-  shl edx, 5                                   {{igi}}
-  xor eax, edx                                 {{igi}}
+  mov {{.EDX}}, {{.EAX}}                       {{igi}}
+  shl {{.EDX}}, 13                             {{igi}}
+  xor {{.EAX}}, {{.EDX}}                       {{igi}}
+  mov {{.EDX}}, {{.EAX}}                       {{igi}}
+  shr {{.EDX}}, 17                             {{igi}}
+  xor {{.EAX}}, {{.EDX}}                       {{igi}}
+  mov {{.EDX}}, {{.EAX}}                       {{igi}}
+  shl {{.EDX}}, 5                              {{igi}}
+  xor {{.EAX}}, {{.EDX}}                       {{igi}}
 
   // update address and counter
-  add esi, 4                                   {{igi}}
-  dec ecx                                      {{igi}}
+  add {{.ESI}}, 4                              {{igi}}
+  dec {{.ECX}}                                 {{igi}}
   jnz loop_xor                                 {{igi}}
 
   // restore context
@@ -74,8 +74,8 @@ header:
   // go to the shellcode body
   jmp body                                     {{igi}}
 calc_body_addr:
-  pop esi                                      {{igi}}
-  push esi                                     {{igi}}
+  pop  {{.ESI}}                                {{igi}}
+  push {{.ESI}}                                {{igi}}
   ret                                          {{igi}}
 
 body:
@@ -166,6 +166,14 @@ type miniDecoderCtx struct {
 	OffsetT int32
 	OffsetA int32
 	OffsetS int32
+
+	// for replacement
+	EAX string
+	EBX string
+	ECX string
+	EDX string
+	ESI string
+	EDI string
 }
 
 // The role of the shellcode loader is to execute the shellcode
@@ -249,17 +257,17 @@ mini_xor:
 decode_stubs:
   lea rcx, [rbx + decoder_stub]              {{igi}}
   mov rdx, eraser_stub - decoder_stub        {{igi}}
-  mov r8, {{hex .DecoderStubKey}}            {{igi}}
+  mov r8, {{hex .DecoderSK}}                 {{igi}}
   call mini_xor                              {{igi}}
 
   lea rcx, [rbx + eraser_stub]               {{igi}}
   mov rdx, crypto_key_stub - eraser_stub     {{igi}}
-  mov r8, {{hex .EraserStubKey}}             {{igi}}
+  mov r8, {{hex .EraserSK}}                  {{igi}}
   call mini_xor                              {{igi}}
 
   lea rcx, [rbx + crypto_key_stub]           {{igi}}
   mov rdx, shellcode_stub - crypto_key_stub  {{igi}}
-  mov r8, {{hex .CryptoKeyStubKey}}          {{igi}}
+  mov r8, {{hex .CryptoKeySK}}               {{igi}}
   call mini_xor                              {{igi}}
   ret                                        {{igi}}
 
@@ -315,11 +323,12 @@ type loaderCtx struct {
 	SaveContext    []byte
 	RestoreContext []byte
 
-	SaveRegister     []byte
-	RestoreRegister  []byte
-	DecoderStubKey   interface{}
-	EraserStubKey    interface{}
-	CryptoKeyStubKey interface{}
+	SaveRegister    []byte
+	RestoreRegister []byte
+
+	DecoderSK   interface{}
+	EraserSK    interface{}
+	CryptoKeySK interface{}
 
 	DecoderStub   []byte
 	EraserStub    []byte
