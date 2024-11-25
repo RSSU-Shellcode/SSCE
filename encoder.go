@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"strconv"
+	"strings"
 	"text/template"
 	"time"
 
@@ -215,6 +217,7 @@ func (e *Encoder) addMiniDecoder(input []byte) ([]byte, error) {
 	tpl, err := template.New("mini_decoder").Funcs(template.FuncMap{
 		"db":  toDB,
 		"hex": toHex,
+		"rd":  e.registerDWORD,
 		"igi": e.insertGarbageInst,
 	}).Parse(miniDecoder)
 	if err != nil {
@@ -242,12 +245,7 @@ func (e *Encoder) addMiniDecoder(input []byte) ([]byte, error) {
 		OffsetA: offsetA,
 		OffsetS: offsetS,
 
-		EAX: e.selectRegister(),
-		EBX: e.selectRegister(),
-		ECX: e.selectRegister(),
-		EDX: e.selectRegister(),
-		ESI: e.selectRegister(),
-		EDI: e.selectRegister(),
+		Reg: e.buildRegisterBox(),
 	}
 	buf := bytes.NewBuffer(make([]byte, 0, 512+len(input)))
 	err = tpl.Execute(buf, &ctx)
@@ -278,6 +276,29 @@ func (e *Encoder) initRegisterBox() {
 	}
 }
 
+func (e *Encoder) buildRegisterBox() map[string]string {
+	register := make(map[string]string, 16)
+	switch e.arch {
+	case 32:
+		for _, reg := range []string{
+			"eax", "ebx", "ecx",
+			"edx", "esi", "edi",
+		} {
+			register[reg] = e.selectRegister()
+		}
+	case 64:
+		for _, reg := range []string{
+			"rax", "rbx", "rcx", "rdx",
+			"rsi", "rdi",
+			"r8", "r9", "r10", "r11",
+			"r12", "r13", "r14", "r15",
+		} {
+			register[reg] = e.selectRegister()
+		}
+	}
+	return register
+}
+
 func (e *Encoder) selectRegister() string {
 	n := 1 + e.rand.Intn(len(e.regBox))
 	var reg string
@@ -294,6 +315,15 @@ func (e *Encoder) insertGarbageInst() string {
 		return ""
 	}
 	return ";" + toDB(e.garbageInst())
+}
+
+func (e *Encoder) registerDWORD(reg string) string {
+	_, err := strconv.Atoi(reg[1:])
+	if err != nil {
+		return reg + "d"
+	} else {
+		return strings.ReplaceAll(reg, "r", "e")
+	}
 }
 
 // Close is used to close shellcode encoder.
