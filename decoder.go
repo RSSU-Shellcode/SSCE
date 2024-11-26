@@ -13,7 +13,7 @@ func (e *Encoder) decoderStub() []byte {
 	case 64:
 		decoder = x64Decoder
 	}
-	return e.miniXOR(decoder, e.decoderSK)
+	return e.miniXOR(decoder, e.stubKey)
 }
 
 func (e *Encoder) eraserStub() []byte {
@@ -24,11 +24,11 @@ func (e *Encoder) eraserStub() []byte {
 	case 64:
 		eraser = x64Eraser
 	}
-	return e.miniXOR(eraser, e.eraserSK)
+	return e.miniXOR(eraser, e.stubKey)
 }
 
 func (e *Encoder) cryptoKeyStub() []byte {
-	return e.miniXOR(e.key, e.cryptoKeySK)
+	return e.miniXOR(e.key, e.stubKey)
 }
 
 func (e *Encoder) miniXOR(inst []byte, key interface{}) []byte {
