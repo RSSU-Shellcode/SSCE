@@ -218,13 +218,13 @@ entry:
   call erase_crypto_key_stub
 
   // erase useless functions and entry
- flag_eraser:
+ flag_eraser_1:
   lea rcx, [rbx + mini_xor]          {{igi}}
   mov rdx, decoder_stub - mini_xor   {{igi}}
   call eraser_stub                   {{igi}}
 
   mov rcx, rbx                       {{igi}}
-  mov rdx, flag_eraser               {{igi}}
+  mov rdx, flag_eraser_1             {{igi}}
   call eraser_stub                   {{igi}}
 
   // restore arguments for call shellcode
@@ -247,6 +247,12 @@ entry:
   mov rdx, {{hex .ShellcodeLen}}     {{igi}}
   call eraser_stub                   {{igi}}
 {{end}}
+
+  // erase the above instructions
+ flag_eraser_2:
+  mov rcx, rbx                       {{igi}}
+  mov rdx, flag_eraser_2             {{igi}}
+  call eraser_stub                   {{igi}}
 
   // erase the eraser stub (27 byte)
   lea rdi, [rbx + eraser_stub]       {{igi}}
