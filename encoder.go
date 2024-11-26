@@ -75,8 +75,8 @@ func (e *Encoder) Encode(shellcode []byte, arch int, opts *Options) ([]byte, err
 		_ = e.engine.Close()
 		e.engine = nil
 	}()
-	// encode the raw shellcode for add loader
-	output, err := e.encode(shellcode)
+	// encode the raw shellcode and add loader
+	output, err := e.addLoader(shellcode)
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +132,7 @@ func (e *Encoder) initAssembler() error {
 	return nil
 }
 
-func (e *Encoder) encode(shellcode []byte) ([]byte, error) {
+func (e *Encoder) addLoader(shellcode []byte) ([]byte, error) {
 	if e.opts.MinifyMode {
 		return shellcode, nil
 	}
@@ -141,25 +141,28 @@ func (e *Encoder) encode(shellcode []byte) ([]byte, error) {
 	shellcode = append(shellcode, tail...)
 	cryptoKey := e.randBytes(32)
 	var (
-		loader  string
-		stubKey interface{}
+		loader    string
+		stubKey   interface{}
+		eraserLen int
 	)
 	switch e.arch {
 	case 32:
 		loader = x86Loader
 		stubKey = e.rand.Uint32()
+		eraserLen = len(x86Eraser) + e.rand.Intn(len(cryptoKey))
 		shellcode = encrypt32(shellcode, cryptoKey)
 	case 64:
 		loader = x64Loader
 		stubKey = e.rand.Uint64()
+		eraserLen = len(x64Eraser) + e.rand.Intn(len(cryptoKey))
 		shellcode = encrypt64(shellcode, cryptoKey)
 	default:
 		return nil, errors.New("invalid architecture")
 	}
 	e.key = cryptoKey
 	e.stubKey = stubKey
-
-	tpl, err := template.New("asm_src").Funcs(template.FuncMap{
+	// create assembly source
+	tpl, err := template.New("loader").Funcs(template.FuncMap{
 		"db":  toDB,
 		"hex": toHex,
 		"igi": e.insertGarbageInst,
@@ -168,19 +171,21 @@ func (e *Encoder) encode(shellcode []byte) ([]byte, error) {
 		return nil, fmt.Errorf("invalid assembly source template: %s", err)
 	}
 	ctx := loaderCtx{
-		JumpShort:     e.garbageJumpShort(64),
-		StubKey:       stubKey,
-		DecoderStub:   e.decoderStub(),
-		EraserStub:    e.eraserStub(),
-		CryptoKeyStub: e.cryptoKeyStub(),
-		CryptoKeyLen:  len(cryptoKey),
-		ShellcodeLen:  len(shellcode),
+		JumpShort:      e.garbageJumpShort(64),
+		StubKey:        stubKey,
+		DecoderStub:    e.decoderStub(),
+		EraserStub:     e.eraserStub(),
+		CryptoKeyStub:  e.cryptoKeyStub(),
+		CryptoKeyLen:   len(cryptoKey),
+		ShellcodeLen:   len(shellcode),
+		EraserLen:      eraserLen,
+		EraseShellcode: e.opts.EraseInst,
 	}
 	if e.opts.SaveContext {
 		ctx.SaveContext = e.saveContext()
 		ctx.RestoreContext = e.restoreContext()
 	}
-	buf := bytes.NewBuffer(make([]byte, 0, 2048+5*len(shellcode)))
+	buf := bytes.NewBuffer(make([]byte, 0, 4096))
 	err = tpl.Execute(buf, &ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build assembly source: %s", err)
@@ -234,7 +239,7 @@ func (e *Encoder) addMiniDecoder(input []byte) ([]byte, error) {
 
 		Reg: e.buildRegisterBox(),
 	}
-	buf := bytes.NewBuffer(make([]byte, 0, 512+len(input)))
+	buf := bytes.NewBuffer(make([]byte, 0, 512))
 	err = tpl.Execute(buf, &ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build assembly source: %s", err)
