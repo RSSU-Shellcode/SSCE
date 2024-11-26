@@ -26,10 +26,8 @@ type Encoder struct {
 	opts *Options
 	key  []byte
 
-	// stub keys for xor stubs
-	decoderSK   interface{}
-	eraserSK    interface{}
-	cryptoKeySK interface{}
+	// stub key for xor stubs
+	stubKey interface{}
 
 	// save and restore context
 	contextSeq []int
@@ -77,11 +75,12 @@ func (e *Encoder) Encode(shellcode []byte, arch int, opts *Options) ([]byte, err
 		_ = e.engine.Close()
 		e.engine = nil
 	}()
-	// encode the raw shellcode
+	// encode the raw shellcode for add loader
 	output, err := e.encode(shellcode)
 	if err != nil {
 		return nil, err
 	}
+	// insert mini decoder at the prefix
 	output, err = e.addMiniDecoder(output)
 	if err != nil {
 		return nil, err
@@ -101,14 +100,14 @@ func (e *Encoder) Encode(shellcode []byte, arch int, opts *Options) ([]byte, err
 		}
 	}
 	// padding garbage at the tail
-	times := 8 + e.rand.Intn((numIter+1)*4)
 	if !opts.NoGarbage {
+		times := 8 + e.rand.Intn((numIter+1)*4)
 		size := e.rand.Intn(16 * times)
 		output = append(output, e.randBytes(size)...)
 	}
 	// append garbage data to tail for prevent brute-force
 	output = append(output, e.randBytes(opts.NumTailInst)...)
-	// append garbage data to output prefix
+	// append garbage data to the output shellcode prefix
 	output = append(e.garbageInst(), output...)
 	return output, nil
 }
@@ -142,31 +141,23 @@ func (e *Encoder) encode(shellcode []byte) ([]byte, error) {
 	shellcode = append(shellcode, tail...)
 	cryptoKey := e.randBytes(32)
 	var (
-		loader      string
-		decoderSK   interface{}
-		eraserSK    interface{}
-		cryptoKeySK interface{}
+		loader  string
+		stubKey interface{}
 	)
 	switch e.arch {
 	case 32:
 		loader = x86Loader
-		decoderSK = e.rand.Uint32()
-		eraserSK = e.rand.Uint32()
-		cryptoKeySK = e.rand.Uint32()
+		stubKey = e.rand.Uint32()
 		shellcode = encrypt32(shellcode, cryptoKey)
 	case 64:
 		loader = x64Loader
-		decoderSK = e.rand.Uint64()
-		eraserSK = e.rand.Uint64()
-		cryptoKeySK = e.rand.Uint64()
+		stubKey = e.rand.Uint64()
 		shellcode = encrypt64(shellcode, cryptoKey)
 	default:
 		return nil, errors.New("invalid architecture")
 	}
 	e.key = cryptoKey
-	e.decoderSK = decoderSK
-	e.eraserSK = eraserSK
-	e.cryptoKeySK = cryptoKeySK
+	e.stubKey = stubKey
 
 	tpl, err := template.New("asm_src").Funcs(template.FuncMap{
 		"db":  toDB,
@@ -177,17 +168,13 @@ func (e *Encoder) encode(shellcode []byte) ([]byte, error) {
 		return nil, fmt.Errorf("invalid assembly source template: %s", err)
 	}
 	ctx := loaderCtx{
-		JumpShort:       e.garbageJumpShort(64),
-		SaveRegister:    e.saveContext(),
-		RestoreRegister: e.restoreContext(),
-		DecoderSK:       decoderSK,
-		EraserSK:        eraserSK,
-		CryptoKeySK:     cryptoKeySK,
-		DecoderStub:     e.decoderStub(),
-		EraserStub:      e.eraserStub(),
-		CryptoKeyStub:   e.cryptoKeyStub(),
-		CryptoKeyLen:    len(cryptoKey),
-		ShellcodeLen:    len(shellcode),
+		JumpShort:     e.garbageJumpShort(64),
+		StubKey:       stubKey,
+		DecoderStub:   e.decoderStub(),
+		EraserStub:    e.eraserStub(),
+		CryptoKeyStub: e.cryptoKeyStub(),
+		CryptoKeyLen:  len(cryptoKey),
+		ShellcodeLen:  len(shellcode),
 	}
 	if e.opts.SaveContext {
 		ctx.SaveContext = e.saveContext()
@@ -299,6 +286,7 @@ func (e *Encoder) buildRegisterBox() map[string]string {
 	return register
 }
 
+// selectRegister is used to make sure each register will be selected once.
 func (e *Encoder) selectRegister() string {
 	n := 1 + e.rand.Intn(1+len(e.regBox))
 	var reg string
@@ -310,7 +298,7 @@ func (e *Encoder) selectRegister() string {
 	return reg
 }
 
-// r8 -> r8d, rax -> eax
+// convert r8 -> r8d, rax -> eax
 func (e *Encoder) registerDWORD(reg string) string {
 	_, err := strconv.Atoi(reg[1:])
 	if err == nil {
