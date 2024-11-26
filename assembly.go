@@ -87,6 +87,8 @@ var x64MiniDecoder = `
 // NOT use R register for prevent appear
 // a lot of instruction prefix about 0x48
 
+// dr is used to get the register low 32bit
+
 // eax store the random seed
 // ebx store the crypto key
 // ecx store the loop times
@@ -95,62 +97,62 @@ var x64MiniDecoder = `
 // edi store the current value
 
 header:
-  push rax                                     {{igi}}
-  push rbx                                     {{igi}}
-  push rcx                                     {{igi}}
-  push rdx                                     {{igi}}
-  push rsi                                     {{igi}}
-  push rdi                                     {{igi}}
+  push {{.Reg.rax}}                            {{igi}}
+  push {{.Reg.rbx}}                            {{igi}}
+  push {{.Reg.rcx}}                            {{igi}}
+  push {{.Reg.rdx}}                            {{igi}}
+  push {{.Reg.rsi}}                            {{igi}}
+  push {{.Reg.rdi}}                            {{igi}}
   pushfq                                       {{igi}}
 
-  mov eax, {{hex .Seed}}                       {{igi}}
-  mov ebx, {{hex .Key}}                        {{igi}}
+  mov {{dr .Reg.rax}}, {{hex .Seed}}           {{igi}}
+  mov {{dr .Reg.rbx}}, {{hex .Key}}            {{igi}}
 
   // prevent continuous 0x00
-  mov ecx, {{hex .NumLoopStub}}                {{igi}}
-  xor ecx, {{hex .NumLoopMaskA}}               {{igi}}
-  xor ecx, {{hex .NumLoopMaskB}}               {{igi}}
+  mov {{dr .Reg.rcx}}, {{hex .NumLoopStub}}    {{igi}}
+  xor {{dr .Reg.rcx}}, {{hex .NumLoopMaskA}}   {{igi}}
+  xor {{dr .Reg.rcx}}, {{hex .NumLoopMaskB}}   {{igi}}
 
   // calculate the body address
-  lea rsi, [rip + body + {{hex .OffsetT}}]     {{igi}}
-  add rsi, {{hex .OffsetA}}                    {{igi}}
-  sub rsi, {{hex .OffsetS}}                    {{igi}}
+  lea {{.Reg.rsi}}, [rip + body + {{hex .OffsetT}}]   {{igi}}
+  add {{.Reg.rsi}}, {{hex .OffsetA}}                  {{igi}}
+  sub {{.Reg.rsi}}, {{hex .OffsetS}}                  {{igi}}
 
  loop_xor:
   // xor block data
-  mov edi, [rsi]                               {{igi}}
-  ror edi, 17                                  {{igi}}
-  xor edi, eax                                 {{igi}}
-  rol edi, 7                                   {{igi}}
-  xor edi, ebx                                 {{igi}}
-  mov [rsi], edi                               {{igi}}
+  mov {{dr .Reg.rdi}}, [{{.Reg.rsi}}]          {{igi}}
+  ror {{dr .Reg.rdi}}, 17                      {{igi}}
+  xor {{dr .Reg.rdi}}, {{dr .Reg.rax}}         {{igi}}
+  rol {{dr .Reg.rdi}}, 7                       {{igi}}
+  xor {{dr .Reg.rdi}}, {{dr .Reg.rbx}}         {{igi}}
+  mov [{{.Reg.rsi}}], {{dr .Reg.rdi}}          {{igi}}
 
   // xor shift 32
   // seed ^= seed << 13
   // seed ^= seed >> 17
   // seed ^= seed << 5
-  mov edx, eax                                 {{igi}}
-  shl edx, 13                                  {{igi}}
-  xor eax, edx                                 {{igi}}
-  mov edx, eax                                 {{igi}}
-  shr edx, 17                                  {{igi}}
-  xor eax, edx                                 {{igi}}
-  mov edx, eax                                 {{igi}}
-  shl edx, 5                                   {{igi}}
-  xor eax, edx                                 {{igi}}
+  mov {{dr .Reg.rdx}}, {{dr .Reg.rax}}         {{igi}}
+  shl {{dr .Reg.rdx}}, 13                      {{igi}}
+  xor {{dr .Reg.rax}}, {{dr .Reg.rdx}}         {{igi}}
+  mov {{dr .Reg.rdx}}, {{dr .Reg.rax}}         {{igi}}
+  shr {{dr .Reg.rdx}}, 17                      {{igi}}
+  xor {{dr .Reg.rax}}, {{dr .Reg.rdx}}         {{igi}}
+  mov {{dr .Reg.rdx}}, {{dr .Reg.rax}}         {{igi}}
+  shl {{dr .Reg.rdx}}, 5                       {{igi}}
+  xor {{dr .Reg.rax}}, {{dr .Reg.rdx}}         {{igi}}
 
   // update address and counter
-  add rsi, 4                                   {{igi}}
-  dec ecx                                      {{igi}}
+  add {{.Reg.rsi}}, 4                          {{igi}}
+  dec {{dr .Reg.rcx}}                          {{igi}}
   jnz loop_xor                                 {{igi}}
 
   popfq                                        {{igi}}
-  pop rdi                                      {{igi}}
-  pop rsi                                      {{igi}}
-  pop rdx                                      {{igi}}
-  pop rcx                                      {{igi}}
-  pop rbx                                      {{igi}}
-  pop rax                                      {{igi}}
+  pop {{.Reg.rdi}}                             {{igi}}
+  pop {{.Reg.rsi}}                             {{igi}}
+  pop {{.Reg.rdx}}                             {{igi}}
+  pop {{.Reg.rcx}}                             {{igi}}
+  pop {{.Reg.rbx}}                             {{igi}}
+  pop {{.Reg.rax}}                             {{igi}}
 
 body:
 `
@@ -167,7 +169,7 @@ type miniDecoderCtx struct {
 	OffsetA int32
 	OffsetS int32
 
-	// for replacement
+	// for replace registers
 	Reg map[string]string
 }
 
