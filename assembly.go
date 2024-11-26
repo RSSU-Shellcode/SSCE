@@ -48,21 +48,8 @@ header:
   xor {{.Reg.edi}}, {{.Reg.ebx}}               {{igi}}
   mov [{{.Reg.esi}}], {{.Reg.edi}}             {{igi}}
 
-  // xor shift 32
-  // seed ^= seed << 13
-  // seed ^= seed >> 17
-  // seed ^= seed << 5
-  mov {{.Reg.edx}}, {{.Reg.eax}}               {{igi}}
-  shl {{.Reg.edx}}, 13                         {{igi}}
-  xor {{.Reg.eax}}, {{.Reg.edx}}               {{igi}}
-  mov {{.Reg.edx}}, {{.Reg.eax}}               {{igi}}
-  shr {{.Reg.edx}}, 17                         {{igi}}
-  xor {{.Reg.eax}}, {{.Reg.edx}}               {{igi}}
-  mov {{.Reg.edx}}, {{.Reg.eax}}               {{igi}}
-  shl {{.Reg.edx}}, 5                          {{igi}}
-  xor {{.Reg.eax}}, {{.Reg.edx}}               {{igi}}
-
   // update address and counter
+  call xor_shift_32                            {{igi}}
   add {{.Reg.esi}}, 4                          {{igi}}
   dec {{.Reg.ecx}}                             {{igi}}
   jnz loop_xor                                 {{igi}}
@@ -73,9 +60,22 @@ header:
 
   // go to the shellcode body
   jmp body                                     {{igi}}
+
 calc_body_addr:
   pop  {{.Reg.esi}}                            {{igi}}
   push {{.Reg.esi}}                            {{igi}}
+  ret                                          {{igi}}
+
+xor_shift_32:
+  mov {{.Reg.edx}}, {{.Reg.eax}}               {{igi}}
+  shl {{.Reg.edx}}, 13                         {{igi}}
+  xor {{.Reg.eax}}, {{.Reg.edx}}               {{igi}}
+  mov {{.Reg.edx}}, {{.Reg.eax}}               {{igi}}
+  shr {{.Reg.edx}}, 17                         {{igi}}
+  xor {{.Reg.eax}}, {{.Reg.edx}}               {{igi}}
+  mov {{.Reg.edx}}, {{.Reg.eax}}               {{igi}}
+  shl {{.Reg.edx}}, 5                          {{igi}}
+  xor {{.Reg.eax}}, {{.Reg.edx}}               {{igi}}
   ret                                          {{igi}}
 
 body:
@@ -97,6 +97,7 @@ var x64MiniDecoder = `
 // edi store the current value
 
 header:
+  // save context
   push {{.Reg.rax}}                            {{igi}}
   push {{.Reg.rbx}}                            {{igi}}
   push {{.Reg.rcx}}                            {{igi}}
@@ -127,10 +128,25 @@ header:
   xor {{dr .Reg.rdi}}, {{dr .Reg.rbx}}         {{igi}}
   mov [{{.Reg.rsi}}], {{dr .Reg.rdi}}          {{igi}}
 
-  // xor shift 32
-  // seed ^= seed << 13
-  // seed ^= seed >> 17
-  // seed ^= seed << 5
+  // update address and counter
+  call xor_shift_32                            {{igi}}
+  add {{.Reg.rsi}}, 4                          {{igi}}
+  dec {{dr .Reg.rcx}}                          {{igi}}
+  jnz loop_xor                                 {{igi}}
+
+  // restore context
+  popfq                                        {{igi}}
+  pop {{.Reg.rdi}}                             {{igi}}
+  pop {{.Reg.rsi}}                             {{igi}}
+  pop {{.Reg.rdx}}                             {{igi}}
+  pop {{.Reg.rcx}}                             {{igi}}
+  pop {{.Reg.rbx}}                             {{igi}}
+  pop {{.Reg.rax}}                             {{igi}}
+
+  // go to the shellcode body
+  jmp body
+
+xor_shift_32:
   mov {{dr .Reg.rdx}}, {{dr .Reg.rax}}         {{igi}}
   shl {{dr .Reg.rdx}}, 13                      {{igi}}
   xor {{dr .Reg.rax}}, {{dr .Reg.rdx}}         {{igi}}
@@ -140,19 +156,7 @@ header:
   mov {{dr .Reg.rdx}}, {{dr .Reg.rax}}         {{igi}}
   shl {{dr .Reg.rdx}}, 5                       {{igi}}
   xor {{dr .Reg.rax}}, {{dr .Reg.rdx}}         {{igi}}
-
-  // update address and counter
-  add {{.Reg.rsi}}, 4                          {{igi}}
-  dec {{dr .Reg.rcx}}                          {{igi}}
-  jnz loop_xor                                 {{igi}}
-
-  popfq                                        {{igi}}
-  pop {{.Reg.rdi}}                             {{igi}}
-  pop {{.Reg.rsi}}                             {{igi}}
-  pop {{.Reg.rdx}}                             {{igi}}
-  pop {{.Reg.rcx}}                             {{igi}}
-  pop {{.Reg.rbx}}                             {{igi}}
-  pop {{.Reg.rax}}                             {{igi}}
+  ret                                          {{igi}}
 
 body:
 `
