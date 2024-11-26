@@ -217,7 +217,7 @@ func (e *Encoder) addMiniDecoder(input []byte) ([]byte, error) {
 	tpl, err := template.New("mini_decoder").Funcs(template.FuncMap{
 		"db":  toDB,
 		"hex": toHex,
-		"rd":  e.registerDWORD,
+		"dr":  e.registerDWORD,
 		"igi": e.insertGarbageInst,
 	}).Parse(miniDecoder)
 	if err != nil {
@@ -268,8 +268,8 @@ func (e *Encoder) initRegisterBox() {
 		}
 	case 64:
 		e.regBox = map[string]struct{}{
-			"rax": {}, "rbx": {}, "rcx": {}, "rdx": {},
-			"rsi": {}, "rdi": {},
+			"rax": {}, "rbx": {}, "rcx": {},
+			"rdx": {}, "rsi": {}, "rdi": {},
 			"r8": {}, "r9": {}, "r10": {}, "r11": {},
 			"r12": {}, "r13": {}, "r14": {}, "r15": {},
 		}
@@ -288,8 +288,8 @@ func (e *Encoder) buildRegisterBox() map[string]string {
 		}
 	case 64:
 		for _, reg := range []string{
-			"rax", "rbx", "rcx", "rdx",
-			"rsi", "rdi",
+			"rax", "rbx", "rcx",
+			"rdx", "rsi", "rdi",
 			"r8", "r9", "r10", "r11",
 			"r12", "r13", "r14", "r15",
 		} {
@@ -300,7 +300,7 @@ func (e *Encoder) buildRegisterBox() map[string]string {
 }
 
 func (e *Encoder) selectRegister() string {
-	n := 1 + e.rand.Intn(len(e.regBox))
+	n := 1 + e.rand.Intn(1+len(e.regBox))
 	var reg string
 	for i := 0; i < n; i++ {
 		for reg = range e.regBox {
@@ -310,20 +310,21 @@ func (e *Encoder) selectRegister() string {
 	return reg
 }
 
+// r8 -> r8d, rax -> eax
+func (e *Encoder) registerDWORD(reg string) string {
+	_, err := strconv.Atoi(reg[1:])
+	if err == nil {
+		return reg + "d"
+	} else {
+		return strings.ReplaceAll(reg, "r", "e")
+	}
+}
+
 func (e *Encoder) insertGarbageInst() string {
 	if e.opts.NoGarbage {
 		return ""
 	}
 	return ";" + toDB(e.garbageInst())
-}
-
-func (e *Encoder) registerDWORD(reg string) string {
-	_, err := strconv.Atoi(reg[1:])
-	if err != nil {
-		return reg + "d"
-	} else {
-		return strings.ReplaceAll(reg, "r", "e")
-	}
 }
 
 // Close is used to close shellcode encoder.
