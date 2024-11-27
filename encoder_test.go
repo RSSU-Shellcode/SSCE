@@ -11,42 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestEncoderN(t *testing.T) {
-	asm := ".code64\n"
-	asm += "mov qword ptr [rcx], 0x64\n"
-	asm += "mov rax, 0x64\n"
-	asm += "ret\n"
-	engine, err := keystone.NewEngine(keystone.ARCH_X86, keystone.MODE_64)
-	require.NoError(t, err)
-	shellcode, err := engine.Assemble(asm, 0)
-	require.NoError(t, err)
-	err = engine.Close()
-	require.NoError(t, err)
-
-	for i := 0; i < 100; i++ {
-		encoder := NewEncoder()
-		opts := &Options{
-			NoIterator: true,
-			NoGarbage:  false,
-		}
-		sc, err := encoder.Encode(shellcode, 64, opts)
-		require.NoError(t, err)
-		spew.Dump(sc)
-
-		err = encoder.Close()
-		require.NoError(t, err)
-
-		if runtime.GOOS != "windows" || runtime.GOARCH != "amd64" {
-			return
-		}
-		addr := loadShellcode(t, sc)
-		var val int
-		ret, _, _ := syscall.SyscallN(addr, (uintptr)(unsafe.Pointer(&val)))
-		require.Equal(t, 0x64, val)
-		require.Equal(t, 0x64, int(ret))
-	}
-}
-
 func TestEncoder(t *testing.T) {
 	t.Run("x64", func(t *testing.T) {
 		asm := ".code64\n"
@@ -62,8 +26,9 @@ func TestEncoder(t *testing.T) {
 
 		encoder := NewEncoder()
 		opts := &Options{
-			NoIterator: true,
-			NoGarbage:  true,
+			MinifyMode: false,
+			NoIterator: false,
+			NoGarbage:  false,
 		}
 		shellcode, err = encoder.Encode(shellcode, 64, opts)
 		require.NoError(t, err)
@@ -97,7 +62,7 @@ func TestEncoder(t *testing.T) {
 		opts := &Options{
 			MinifyMode: true,
 			NoIterator: true,
-			NoGarbage:  false,
+			NoGarbage:  true,
 		}
 		shellcode, err = encoder.Encode(shellcode, 32, opts)
 		require.NoError(t, err)
@@ -114,4 +79,53 @@ func TestEncoder(t *testing.T) {
 		ret, _, _ := syscall.SyscallN(addr, (uintptr)(unsafe.Pointer(&val)))
 		require.Equal(t, 0x86, int(ret))
 	})
+}
+
+func TestEncoderFuzz(t *testing.T) {
+	encoder := NewEncoder()
+
+	t.Run("x64", func(t *testing.T) {
+		asm := ".code64\n"
+		asm += "mov qword ptr [rcx], 0x64\n"
+		asm += "mov rax, 0x64\n"
+		asm += "ret\n"
+		engine, err := keystone.NewEngine(keystone.ARCH_X86, keystone.MODE_64)
+		require.NoError(t, err)
+		shellcode, err := engine.Assemble(asm, 0)
+		require.NoError(t, err)
+		err = engine.Close()
+		require.NoError(t, err)
+
+		for i := 0; i < 100; i++ {
+			opts := &Options{
+				SaveContext: true,
+				EraseInst:   true,
+			}
+			output, err := encoder.Encode(shellcode, 64, opts)
+			require.NoError(t, err)
+			testCheckOutput(t, output)
+
+			if runtime.GOOS != "windows" || runtime.GOARCH != "amd64" {
+				return
+			}
+			addr := loadShellcode(t, output)
+			var val int
+			ret, _, _ := syscall.SyscallN(addr, (uintptr)(unsafe.Pointer(&val)))
+			require.Equal(t, 0x64, val)
+			require.Equal(t, int(addr), int(ret))
+
+			sc := unsafe.Slice((*byte)(unsafe.Pointer(addr)), len(output))
+			require.NotSubset(t, sc, shellcode)
+		}
+	})
+
+	err := encoder.Close()
+	require.NoError(t, err)
+}
+
+func testCheckOutput(t *testing.T, output []byte) {
+	// not appear call
+	require.NotSubset(t, output, []byte{0x00, 0x00, 0x00})
+	// not appear long near
+	require.NotSubset(t, output, []byte{0xFF, 0xFF, 0xFF})
 }
