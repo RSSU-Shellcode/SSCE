@@ -101,6 +101,7 @@ func (e *Encoder) Encode(shellcode []byte, arch int, opts *Options) ([]byte, err
 		numIter = 0
 	}
 	for i := 0; i < numIter; i++ {
+		// only padding at the last mini decoder
 		if i == numIter-1 {
 			e.padding = true
 		}
@@ -253,7 +254,7 @@ func (e *Encoder) addMiniDecoder(input []byte) ([]byte, error) {
 		Padding: e.padding,
 	}
 	if e.padding {
-		ctx.PadData = e.randBytes(8 + e.rand.Intn(120))
+		ctx.PadData = e.randBytes(8 + e.rand.Intn(48))
 	}
 	buf := bytes.NewBuffer(make([]byte, 0, 512))
 	err = tpl.Execute(buf, &ctx)

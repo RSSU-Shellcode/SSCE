@@ -88,6 +88,8 @@ xor_shift_32:
   {{igi}}  {{igi}}  {{igi}}  {{igi}}
   {{igi}}  {{igi}}  {{igi}}  {{igi}}
   {{igi}}  {{igi}}  {{igi}}  {{igi}}
+  {{igi}}  {{igi}}  {{igi}}  {{igi}}
+  {{igi}}  {{igi}}  {{igi}}  {{igi}}
 {{end}}
 
   // go to the shellcode body

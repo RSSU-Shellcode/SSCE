@@ -101,8 +101,6 @@ func TestEncoderFuzz(t *testing.T) {
 			}
 			output, err := encoder.Encode(shellcode, 32, opts)
 			require.NoError(t, err)
-
-			spew.Dump(output)
 			testCheckOutput(t, output)
 
 			if runtime.GOOS != "windows" || runtime.GOARCH != "386" {
@@ -161,8 +159,10 @@ func TestEncoderFuzz(t *testing.T) {
 }
 
 func testCheckOutput(t *testing.T, output []byte) {
+	msg := "find call short or jump near\n"
+	msg += spew.Sdump(output)
 	// not appear call
-	require.False(t, bytes.Contains(output, []byte{0x00, 0x00, 0x00}), "find call short")
+	require.False(t, bytes.Contains(output, []byte{0x00, 0x00, 0x00}), msg)
 	// not appear jump near
-	require.False(t, bytes.Contains(output, []byte{0xFF, 0xFF, 0xFF}), "find jump near")
+	require.False(t, bytes.Contains(output, []byte{0xFF, 0xFF, 0xFF}), msg)
 }
