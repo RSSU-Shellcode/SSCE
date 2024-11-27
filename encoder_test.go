@@ -17,6 +17,8 @@ func TestEncoder(t *testing.T) {
 
 	t.Run("x86", func(t *testing.T) {
 		asm := ".code32\n"
+		asm += "mov eax, dword ptr [esp+4]\n"
+		asm += "mov dword ptr [eax], 0x86\n"
 		asm += "mov eax, 0x86\n"
 		asm += "ret\n"
 		engine, err := keystone.NewEngine(keystone.ARCH_X86, keystone.MODE_32)
@@ -27,9 +29,8 @@ func TestEncoder(t *testing.T) {
 		require.NoError(t, err)
 
 		opts := &Options{
-			MinifyMode: true,
 			NoIterator: true,
-			NoGarbage:  false,
+			NoGarbage:  true,
 		}
 		shellcode, err = encoder.Encode(shellcode, 32, opts)
 		require.NoError(t, err)
@@ -42,6 +43,7 @@ func TestEncoder(t *testing.T) {
 		var val int
 		ret, _, _ := syscall.SyscallN(addr, (uintptr)(unsafe.Pointer(&val)))
 		require.Equal(t, 0x86, int(ret))
+		require.Equal(t, 0x86, val)
 	})
 
 	t.Run("x64", func(t *testing.T) {
@@ -57,9 +59,8 @@ func TestEncoder(t *testing.T) {
 		require.NoError(t, err)
 
 		opts := &Options{
-			MinifyMode: false,
 			NoIterator: true,
-			NoGarbage:  false,
+			NoGarbage:  true,
 		}
 		shellcode, err = encoder.Encode(shellcode, 64, opts)
 		require.NoError(t, err)
@@ -71,8 +72,8 @@ func TestEncoder(t *testing.T) {
 		addr := loadShellcode(t, shellcode)
 		var val int
 		ret, _, _ := syscall.SyscallN(addr, (uintptr)(unsafe.Pointer(&val)))
-		require.Equal(t, 0x64, val)
 		require.Equal(t, 0x64, int(ret))
+		require.Equal(t, 0x64, val)
 	})
 
 	err := encoder.Close()
@@ -84,6 +85,8 @@ func TestEncoderFuzz(t *testing.T) {
 
 	t.Run("x86", func(t *testing.T) {
 		asm := ".code32\n"
+		asm += "mov eax, dword ptr [esp+4]\n"
+		asm += "mov dword ptr [eax], 0x86\n"
 		asm += "mov eax, 0x86\n"
 		asm += "ret\n"
 		engine, err := keystone.NewEngine(keystone.ARCH_X86, keystone.MODE_32)
@@ -95,7 +98,6 @@ func TestEncoderFuzz(t *testing.T) {
 
 		for i := 0; i < 100; i++ {
 			opts := &Options{
-				MinifyMode:  true,
 				SaveContext: true,
 				EraseInst:   true,
 			}
@@ -107,10 +109,10 @@ func TestEncoderFuzz(t *testing.T) {
 				continue
 			}
 			addr := loadShellcode(t, output)
-			// var val int
-			// ret, _, _ := syscall.SyscallN(addr, (uintptr)(unsafe.Pointer(&val)))
-			// // TODO require.Equal(t, 0x86, val)
+			var val int
+			_, _, _ = syscall.SyscallN(addr, (uintptr)(unsafe.Pointer(&val)))
 			// require.Equal(t, int(addr), int(ret))
+			require.Equal(t, 0x86, val)
 
 			// check shellcode is erased
 			sc := unsafe.Slice((*byte)(unsafe.Pointer(addr)), len(output))
@@ -145,8 +147,8 @@ func TestEncoderFuzz(t *testing.T) {
 			addr := loadShellcode(t, output)
 			var val int
 			ret, _, _ := syscall.SyscallN(addr, (uintptr)(unsafe.Pointer(&val)))
-			require.Equal(t, 0x64, val)
 			require.Equal(t, int(addr), int(ret))
+			require.Equal(t, 0x64, val)
 
 			// check shellcode is erased
 			sc := unsafe.Slice((*byte)(unsafe.Pointer(addr)), len(output))
