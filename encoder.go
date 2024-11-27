@@ -34,6 +34,9 @@ type Encoder struct {
 
 	// for select random register
 	regBox map[string]struct{}
+
+	// for cover call short
+	padding bool
 }
 
 // Options contains options about encode shellcode.
@@ -81,10 +84,14 @@ func (e *Encoder) Encode(shellcode []byte, arch int, opts *Options) ([]byte, err
 		return nil, err
 	}
 	// insert mini decoder at the prefix
+	if opts.NoIterator {
+		e.padding = true
+	}
 	output, err = e.addMiniDecoder(output)
 	if err != nil {
 		return nil, err
 	}
+	e.padding = false
 	// iterate the encoding of the pre-decoder and part of the shellcode
 	numIter := opts.NumIterator
 	if numIter < 1 {
@@ -94,6 +101,9 @@ func (e *Encoder) Encode(shellcode []byte, arch int, opts *Options) ([]byte, err
 		numIter = 0
 	}
 	for i := 0; i < numIter; i++ {
+		if i == numIter-1 {
+			e.padding = true
+		}
 		output, err = e.addMiniDecoder(output)
 		if err != nil {
 			return nil, err
@@ -211,6 +221,7 @@ func (e *Encoder) addMiniDecoder(input []byte) ([]byte, error) {
 		"hex": toHex,
 		"dr":  e.registerDWORD,
 		"igi": e.insertGarbageInst,
+		"igs": e.insertGarbageInstShort,
 	}).Parse(miniDecoder)
 	if err != nil {
 		return nil, fmt.Errorf("invalid assembly source template: %s", err)
@@ -238,6 +249,11 @@ func (e *Encoder) addMiniDecoder(input []byte) ([]byte, error) {
 		OffsetS: offsetS,
 
 		Reg: e.buildRegisterBox(),
+
+		Padding: e.padding,
+	}
+	if e.padding {
+		ctx.PadData = e.randBytes(8 + e.rand.Intn(120))
 	}
 	buf := bytes.NewBuffer(make([]byte, 0, 512))
 	err = tpl.Execute(buf, &ctx)
@@ -318,6 +334,13 @@ func (e *Encoder) insertGarbageInst() string {
 		return ""
 	}
 	return ";" + toDB(e.garbageInst())
+}
+
+func (e *Encoder) insertGarbageInstShort() string {
+	if e.opts.NoGarbage {
+		return ""
+	}
+	return ";" + toDB(e.garbageInstShort())
 }
 
 // Close is used to close shellcode encoder.

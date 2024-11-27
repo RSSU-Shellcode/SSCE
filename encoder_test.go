@@ -101,6 +101,8 @@ func TestEncoderFuzz(t *testing.T) {
 			}
 			output, err := encoder.Encode(shellcode, 32, opts)
 			require.NoError(t, err)
+
+			spew.Dump(output)
 			testCheckOutput(t, output)
 
 			if runtime.GOOS != "windows" || runtime.GOARCH != "386" {
