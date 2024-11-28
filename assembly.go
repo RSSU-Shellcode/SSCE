@@ -285,7 +285,9 @@ entry:
   // erase the above instructions
  flag_eraser_2:
   mov ecx, ebx                       {{igi}}
-  mov edx, flag_eraser_2 + 8         {{igi}}
+  // prevent appear three 0x00
+  xor edx, edx                       {{igi}}
+  add dx, flag_eraser_2 + 8          {{igi}}
   call eraser_stub                   {{igi}}
 
   // erase the eraser stub
@@ -293,7 +295,7 @@ entry:
   lea esi, [ebx + crypto_key_stub]   {{igi}}
   // prevent appear three 0x00
   xor ecx, ecx                       {{igi}}
-  add ecx, {{hex .EraserLen}}        {{igi}}
+  add cx, {{hex .EraserLen}}         {{igi}}
   cld                                {{igi}}
   rep movsb                          {{igi}}
 
@@ -440,7 +442,9 @@ entry:
   // erase the above instructions
  flag_eraser_2:
   mov rcx, rbx                       {{igi}}
-  mov rdx, flag_eraser_2 + 8         {{igi}}
+  // prevent appear three 0x00
+  xor edx, edx                       {{igi}}
+  add dx, flag_eraser_2 + 8          {{igi}}
   call eraser_stub                   {{igi}}
 
   // erase the eraser stub
@@ -448,7 +452,7 @@ entry:
   lea rsi, [rbx + crypto_key_stub]   {{igi}}
   // prevent appear three 0x00
   xor ecx, ecx                       {{igi}}
-  add rcx, {{hex .EraserLen}}        {{igi}}
+  add cx, {{hex .EraserLen}}         {{igi}}
   cld                                {{igi}}
   rep movsb                          {{igi}}
 
