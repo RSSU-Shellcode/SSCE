@@ -84,14 +84,13 @@ func (e *Encoder) Encode(shellcode []byte, arch int, opts *Options) ([]byte, err
 		return nil, err
 	}
 	// insert mini decoder at the prefix
-	if opts.NoIterator {
+	if !opts.MinifyMode {
 		e.padding = true
 	}
 	output, err = e.addMiniDecoder(output)
 	if err != nil {
 		return nil, err
 	}
-	e.padding = false
 	// iterate the encoding of the pre-decoder and part of the shellcode
 	numIter := opts.NumIterator
 	if numIter < 1 {
@@ -101,10 +100,6 @@ func (e *Encoder) Encode(shellcode []byte, arch int, opts *Options) ([]byte, err
 		numIter = 0
 	}
 	for i := 0; i < numIter; i++ {
-		// only padding at the last mini decoder
-		if i == numIter-1 {
-			e.padding = true
-		}
 		output, err = e.addMiniDecoder(output)
 		if err != nil {
 			return nil, err
@@ -251,7 +246,7 @@ func (e *Encoder) addMiniDecoder(input []byte) ([]byte, error) {
 
 		Padding: e.padding,
 	}
-	if e.padding {
+	if ctx.Padding {
 		ctx.PadData = e.randBytes(8 + e.rand.Intn(48))
 	}
 	buf := bytes.NewBuffer(make([]byte, 0, 512))
