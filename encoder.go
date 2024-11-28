@@ -167,8 +167,6 @@ func (e *Encoder) addLoader(shellcode []byte) ([]byte, error) {
 		stubKey = e.rand.Uint64()
 		eraserLen = len(x64Eraser) + e.rand.Intn(len(cryptoKey))
 		shellcode = encrypt64(shellcode, cryptoKey)
-	default:
-		return nil, errors.New("invalid architecture")
 	}
 	e.key = cryptoKey
 	e.stubKey = stubKey

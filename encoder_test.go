@@ -29,11 +29,14 @@ func TestEncoder(t *testing.T) {
 		require.NoError(t, err)
 
 		opts := &Options{
+			EraseInst:  true,
 			NoIterator: true,
 			NoGarbage:  true,
 		}
 		shellcode, err = encoder.Encode(shellcode, 32, opts)
 		require.NoError(t, err)
+		testFindSignature(t, shellcode)
+
 		spew.Dump(shellcode)
 
 		if runtime.GOOS != "windows" || runtime.GOARCH != "386" {
@@ -44,6 +47,11 @@ func TestEncoder(t *testing.T) {
 		ret, _, _ := syscall.SyscallN(addr, (uintptr)(unsafe.Pointer(&val)))
 		require.Equal(t, 0x86, int(ret))
 		require.Equal(t, 0x86, val)
+
+		// check shellcode is erased
+		sc := unsafe.Slice((*byte)(unsafe.Pointer(addr)), len(shellcode))
+		require.False(t, bytes.Contains(sc, shellcode))
+		testFindSignature(t, sc)
 	})
 
 	t.Run("x64", func(t *testing.T) {
@@ -59,11 +67,14 @@ func TestEncoder(t *testing.T) {
 		require.NoError(t, err)
 
 		opts := &Options{
+			EraseInst:  true,
 			NoIterator: true,
 			NoGarbage:  true,
 		}
 		shellcode, err = encoder.Encode(shellcode, 64, opts)
 		require.NoError(t, err)
+		testFindSignature(t, shellcode)
+
 		spew.Dump(shellcode)
 
 		if runtime.GOOS != "windows" || runtime.GOARCH != "amd64" {
@@ -74,6 +85,11 @@ func TestEncoder(t *testing.T) {
 		ret, _, _ := syscall.SyscallN(addr, (uintptr)(unsafe.Pointer(&val)))
 		require.Equal(t, 0x64, int(ret))
 		require.Equal(t, 0x64, val)
+
+		// check shellcode is erased
+		sc := unsafe.Slice((*byte)(unsafe.Pointer(addr)), len(shellcode))
+		require.False(t, bytes.Contains(sc, shellcode))
+		testFindSignature(t, sc)
 	})
 
 	err := encoder.Close()
@@ -103,6 +119,8 @@ func TestMinifyMode(t *testing.T) {
 		}
 		shellcode, err = encoder.Encode(shellcode, 32, opts)
 		require.NoError(t, err)
+		testFindSignature(t, shellcode)
+
 		spew.Dump(shellcode)
 
 		if runtime.GOOS != "windows" || runtime.GOARCH != "386" {
@@ -134,6 +152,8 @@ func TestMinifyMode(t *testing.T) {
 		}
 		shellcode, err = encoder.Encode(shellcode, 64, opts)
 		require.NoError(t, err)
+		testFindSignature(t, shellcode)
+
 		spew.Dump(shellcode)
 
 		if runtime.GOOS != "windows" || runtime.GOARCH != "amd64" {
@@ -173,7 +193,7 @@ func TestEncoderFuzz(t *testing.T) {
 			}
 			output, err := encoder.Encode(shellcode, 32, opts)
 			require.NoError(t, err)
-			testCheckOutput(t, output)
+			testFindSignature(t, output)
 
 			if runtime.GOOS != "windows" || runtime.GOARCH != "386" {
 				continue
@@ -187,6 +207,7 @@ func TestEncoderFuzz(t *testing.T) {
 			// check shellcode is erased
 			sc := unsafe.Slice((*byte)(unsafe.Pointer(addr)), len(output))
 			require.False(t, bytes.Contains(sc, shellcode))
+			testFindSignature(t, sc)
 		}
 	})
 
@@ -209,7 +230,7 @@ func TestEncoderFuzz(t *testing.T) {
 			}
 			output, err := encoder.Encode(shellcode, 64, opts)
 			require.NoError(t, err)
-			testCheckOutput(t, output)
+			testFindSignature(t, output)
 
 			if runtime.GOOS != "windows" || runtime.GOARCH != "amd64" {
 				continue
@@ -223,6 +244,7 @@ func TestEncoderFuzz(t *testing.T) {
 			// check shellcode is erased
 			sc := unsafe.Slice((*byte)(unsafe.Pointer(addr)), len(output))
 			require.False(t, bytes.Contains(sc, shellcode))
+			testFindSignature(t, sc)
 		}
 	})
 
@@ -230,11 +252,11 @@ func TestEncoderFuzz(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func testCheckOutput(t *testing.T, output []byte) {
+func testFindSignature(t *testing.T, data []byte) {
 	msg := "find call short or jump near\n"
-	msg += spew.Sdump(output)
+	msg += spew.Sdump(data)
 	// not appear call
-	require.False(t, bytes.Contains(output, []byte{0x00, 0x00, 0x00}), msg)
+	require.False(t, bytes.Contains(data, []byte{0x00, 0x00, 0x00}), msg)
 	// not appear jump near
-	require.False(t, bytes.Contains(output, []byte{0xFF, 0xFF, 0xFF}), msg)
+	require.False(t, bytes.Contains(data, []byte{0xFF, 0xFF, 0xFF}), msg)
 }
