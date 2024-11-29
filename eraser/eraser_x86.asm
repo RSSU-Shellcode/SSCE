@@ -4,13 +4,14 @@
 ; ecx = address, edx = data length
 erase:
   mov eax, ecx
-  ror eax, 13
+  add eax, esi
+  ror eax, 17
+  xor eax, edi
   shr edx, 2
  loop_xor:
   xor [ecx], eax
   mov eax, [ecx]
   rol eax, 11
-  xor eax, ecx
   add ecx, 4
   dec edx
   jnz loop_xor
