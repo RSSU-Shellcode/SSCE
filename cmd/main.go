@@ -52,9 +52,8 @@ func main() {
 	shellcode, err := os.ReadFile(in)
 	checkError(err)
 	if ih {
-		data, err := hex.DecodeString(string(shellcode))
+		shellcode, err = hex.DecodeString(string(shellcode))
 		checkError(err)
-		shellcode = data
 	}
 	fmt.Println("raw shellcode size:", len(shellcode))
 
