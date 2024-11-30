@@ -10,6 +10,7 @@ import (
 )
 
 var (
+	seed int64
 	arch int
 	opts ssce.Options
 	ih   bool
@@ -19,7 +20,8 @@ var (
 )
 
 func init() {
-	flag.IntVar(&arch, "arch", 64, "set architecture")
+	flag.Int64Var(&seed, "seed", 0, "set the random seed")
+	flag.IntVar(&arch, "arch", 64, "set the architecture")
 	flag.IntVar(&opts.NumIterator, "iter", 0, "set the number of the iterator")
 	flag.IntVar(&opts.NumTailInst, "tail", 0, "set the number of the garbage inst at tail")
 	flag.BoolVar(&opts.MinifyMode, "minify", false, "use minify mode, not recommend")
@@ -48,8 +50,11 @@ func main() {
 		}
 	}
 
+	encoder := ssce.NewEncoder(seed)
+	fmt.Println("random seed:", encoder.Seed())
+
 	fmt.Printf("read input shellcode from \"%s\"\n", in)
-	shellcode, err := os.ReadFile(in)
+	shellcode, err := os.ReadFile(in) // #nosec
 	checkError(err)
 	if ih {
 		shellcode, err = hex.DecodeString(string(shellcode))
@@ -57,15 +62,14 @@ func main() {
 	}
 	fmt.Println("raw shellcode size:", len(shellcode))
 
-	encoder := ssce.NewEncoder()
 	shellcode, err = encoder.Encode(shellcode, arch, &opts)
 	checkError(err)
 	fmt.Println("encoded shellcode size:", len(shellcode))
+
+	fmt.Printf("write output shellcode to \"%s\"\n", out)
 	if oh {
 		shellcode = []byte(hex.EncodeToString(shellcode))
 	}
-
-	fmt.Printf("write output shellcode to \"%s\"\n", out)
 	err = os.WriteFile(out, shellcode, 0600)
 	checkError(err)
 
