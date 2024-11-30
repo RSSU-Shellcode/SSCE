@@ -19,13 +19,19 @@ import (
 )
 
 func main() {
-    encoder := ssce.NewEncoder()
+    encoder := ssce.NewEncoder(0)
 
     shellcode, err := os.ReadFile("shellcode.bin")
     checkError(err)
+
     opts := ssce.Options{
-        SaveContext: true,
-        EraseInst:   true,
+        NumIterator: 4,
+        NumTailInst: 64,
+        MinifyMode:  false,
+        SaveContext: false,
+        EraseInst:   false,
+        NoIterator:  false,
+        NoGarbage:   false,
     }
 
     shellcode, err = encoder.Encode(shellcode, 64, &opts)
