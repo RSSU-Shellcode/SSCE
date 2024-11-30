@@ -12,7 +12,7 @@ import (
 )
 
 func TestEncoder(t *testing.T) {
-	encoder := NewEncoder()
+	encoder := NewEncoder(0)
 
 	t.Run("x86", func(t *testing.T) {
 		asm := ".code32\n"
@@ -104,7 +104,7 @@ func TestEncoder(t *testing.T) {
 }
 
 func TestMinifyMode(t *testing.T) {
-	encoder := NewEncoder()
+	encoder := NewEncoder(0)
 
 	t.Run("x86", func(t *testing.T) {
 		asm := ".code32\n"
@@ -181,7 +181,7 @@ func TestMinifyMode(t *testing.T) {
 }
 
 func TestEncoderFuzz(t *testing.T) {
-	encoder := NewEncoder()
+	encoder := NewEncoder(0)
 
 	t.Run("x86", func(t *testing.T) {
 		asm := ".code32\n"

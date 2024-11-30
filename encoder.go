@@ -16,6 +16,7 @@ import (
 
 // Encoder is a simple shellcode encoder.
 type Encoder struct {
+	seed int64
 	rand *rand.Rand
 
 	// assembler
@@ -51,10 +52,14 @@ type Options struct {
 }
 
 // NewEncoder is used to create a simple shellcode encoder.
-func NewEncoder() *Encoder {
-	rd := rand.New(rand.NewSource(time.Now().UTC().UnixNano()))
+func NewEncoder(seed int64) *Encoder {
+	if seed == 0 {
+		seed = time.Now().UTC().UnixNano()
+	}
+	rng := rand.New(rand.NewSource(seed)) // #nosec
 	encoder := Encoder{
-		rand: rd,
+		seed: seed,
+		rand: rng,
 	}
 	return &encoder
 }
@@ -318,9 +323,8 @@ func (e *Encoder) registerDWORD(reg string) string {
 	_, err := strconv.Atoi(reg[1:])
 	if err == nil {
 		return reg + "d"
-	} else {
-		return strings.ReplaceAll(reg, "r", "e")
 	}
+	return strings.ReplaceAll(reg, "r", "e")
 }
 
 func (e *Encoder) insertGarbageInst() string {
@@ -335,6 +339,11 @@ func (e *Encoder) insertGarbageInstShort() string {
 		return ""
 	}
 	return ";" + toDB(e.garbageInstShort())
+}
+
+// Seed is used to get the random seed for debug.
+func (e *Encoder) Seed() int64 {
+	return e.seed
 }
 
 // Close is used to close shellcode encoder.
