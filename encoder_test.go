@@ -3,7 +3,6 @@ package ssce
 import (
 	"bytes"
 	"runtime"
-	"syscall"
 	"testing"
 	"unsafe"
 
@@ -47,7 +46,7 @@ func TestEncoder(t *testing.T) {
 		}
 		addr := loadShellcode(t, shellcode)
 		var val int
-		ret, _, _ := syscall.SyscallN(addr, (uintptr)(unsafe.Pointer(&val)))
+		ret, _, _ := syscallN(addr, (uintptr)(unsafe.Pointer(&val)))
 		require.Equal(t, 0x86, int(ret))
 		require.Equal(t, 0x86, val)
 
@@ -90,7 +89,7 @@ func TestEncoder(t *testing.T) {
 		}
 		addr := loadShellcode(t, shellcode)
 		var val int
-		ret, _, _ := syscall.SyscallN(addr, (uintptr)(unsafe.Pointer(&val)))
+		ret, _, _ := syscallN(addr, (uintptr)(unsafe.Pointer(&val)))
 		require.Equal(t, 0x64, int(ret))
 		require.Equal(t, 0x64, val)
 
@@ -139,7 +138,7 @@ func TestMinifyMode(t *testing.T) {
 		}
 		addr := loadShellcode(t, shellcode)
 		var val int
-		ret, _, _ := syscall.SyscallN(addr, (uintptr)(unsafe.Pointer(&val)))
+		ret, _, _ := syscallN(addr, (uintptr)(unsafe.Pointer(&val)))
 		require.Equal(t, 0x86, int(ret))
 		require.Equal(t, 0x86, val)
 	})
@@ -172,7 +171,7 @@ func TestMinifyMode(t *testing.T) {
 		}
 		addr := loadShellcode(t, shellcode)
 		var val int
-		ret, _, _ := syscall.SyscallN(addr, (uintptr)(unsafe.Pointer(&val)))
+		ret, _, _ := syscallN(addr, (uintptr)(unsafe.Pointer(&val)))
 		require.Equal(t, 0x64, int(ret))
 		require.Equal(t, 0x64, val)
 	})
@@ -211,7 +210,7 @@ func TestEncoderFuzz(t *testing.T) {
 			}
 			addr := loadShellcode(t, output)
 			var val int
-			_, _, _ = syscall.SyscallN(addr, (uintptr)(unsafe.Pointer(&val)))
+			_, _, _ = syscallN(addr, (uintptr)(unsafe.Pointer(&val)))
 			require.Equal(t, 0x86, val)
 
 			// check shellcode is erased
@@ -247,7 +246,7 @@ func TestEncoderFuzz(t *testing.T) {
 			}
 			addr := loadShellcode(t, output)
 			var val int
-			ret, _, _ := syscall.SyscallN(addr, (uintptr)(unsafe.Pointer(&val)))
+			ret, _, _ := syscallN(addr, (uintptr)(unsafe.Pointer(&val)))
 			require.Equal(t, int(addr), int(ret))
 			require.Equal(t, 0x64, val)
 

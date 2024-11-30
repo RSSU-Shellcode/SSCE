@@ -1,6 +1,7 @@
 package ssce
 
 import (
+	"syscall"
 	"testing"
 	"unsafe"
 
@@ -17,4 +18,11 @@ func loadShellcode(t *testing.T, sc []byte) uintptr {
 	dst := unsafe.Slice((*byte)(unsafe.Pointer(scAddr)), size)
 	copy(dst, sc)
 	return scAddr
+}
+
+// for cross-compile
+//
+//go:uintptrescapes
+func syscallN(trap uintptr, args ...uintptr) (r1, r2 uintptr, err syscall.Errno) {
+	return syscall.SyscallN(trap, args...)
 }
