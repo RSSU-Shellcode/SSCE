@@ -8,7 +8,7 @@ func (e *Encoder) garbageInst() []byte {
 	case 0:
 		return nil
 	case 1:
-		return e.garbageJumpShort(16)
+		return e.garbageJumpShort(2, 16)
 	default:
 		panic("invalid garbage instruction selection")
 	}
@@ -22,22 +22,22 @@ func (e *Encoder) garbageInstShort() []byte {
 	case 0:
 		return nil
 	case 1:
-		return e.garbageJumpShort(5)
+		return e.garbageJumpShort(2, 5)
 	default:
 		panic("invalid garbage instruction selection")
 	}
 }
 
 // jmp short [4-128)
-func (e *Encoder) garbageJumpShort(max int) []byte {
+func (e *Encoder) garbageJumpShort(min, max int) []byte {
 	if e.opts.NoGarbage {
 		return nil
 	}
-	if max > 127 || max < 3 {
-		panic("max length out of range")
+	if min < 1 || max > 127 {
+		panic("garbage jump short length out of range")
 	}
-	jmp := make([]byte, 0, 1+max)
-	offset := 2 + e.rand.Intn(max-2)
+	jmp := make([]byte, 0, 1+max/2)
+	offset := min + e.rand.Intn(max-min+1)
 	jmp = append(jmp, 0xEB, byte(offset))
 	jmp = append(jmp, e.randBytes(offset)...)
 	return jmp
