@@ -2,6 +2,7 @@ package ssce
 
 import (
 	"bytes"
+	"fmt"
 	"runtime"
 	"testing"
 	"unsafe"
@@ -13,6 +14,7 @@ import (
 
 func TestEncoder(t *testing.T) {
 	encoder := NewEncoder(0)
+	fmt.Println("seed:", encoder.Seed())
 
 	t.Run("x86", func(t *testing.T) {
 		asm := ".code32\n"
@@ -105,6 +107,7 @@ func TestEncoder(t *testing.T) {
 
 func TestMinifyMode(t *testing.T) {
 	encoder := NewEncoder(0)
+	fmt.Println("seed:", encoder.Seed())
 
 	t.Run("x86", func(t *testing.T) {
 		asm := ".code32\n"
@@ -182,6 +185,7 @@ func TestMinifyMode(t *testing.T) {
 
 func TestEncoderFuzz(t *testing.T) {
 	encoder := NewEncoder(0)
+	fmt.Println("seed:", encoder.Seed())
 
 	t.Run("x86", func(t *testing.T) {
 		asm := ".code32\n"
@@ -262,7 +266,7 @@ func TestEncoderFuzz(t *testing.T) {
 }
 
 func testFindSignature(t *testing.T, data []byte) {
-	msg := "find call short or jump near\n"
+	msg := "found call short or jump near\n"
 	msg += spew.Sdump(data)
 	// not appear call
 	require.False(t, bytes.Contains(data, []byte{0x00, 0x00, 0x00}), msg)

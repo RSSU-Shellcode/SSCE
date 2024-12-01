@@ -18,8 +18,10 @@ func (e *Encoder) garbageInstShort() []byte {
 	if e.opts.NoGarbage {
 		return nil
 	}
-	switch e.rand.Intn(1) {
+	switch e.rand.Intn(2) {
 	case 0:
+		return nil
+	case 1:
 		return e.garbageJumpShort(5)
 	default:
 		panic("invalid garbage instruction selection")
