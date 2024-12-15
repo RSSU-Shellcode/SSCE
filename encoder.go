@@ -36,7 +36,7 @@ type Encoder struct {
 	contextSeq []int
 
 	// for select random register
-	regBox map[string]struct{}
+	regBox []string
 
 	// for cover call short
 	padding bool
@@ -268,7 +268,7 @@ func (e *Encoder) addMiniDecoder(input []byte) ([]byte, error) {
 		OffsetA: offsetA,
 		OffsetS: offsetS,
 
-		Reg: e.buildRegisterBox(),
+		Reg: e.buildRegisterMap(),
 
 		Padding: e.padding,
 	}
@@ -290,21 +290,21 @@ func (e *Encoder) addMiniDecoder(input []byte) ([]byte, error) {
 func (e *Encoder) initRegisterBox() {
 	switch e.arch {
 	case 32:
-		e.regBox = map[string]struct{}{
-			"eax": {}, "ebx": {}, "ecx": {},
-			"edx": {}, "esi": {}, "edi": {},
+		e.regBox = []string{
+			"eax", "ebx", "ecx",
+			"edx", "esi", "edi",
 		}
 	case 64:
-		e.regBox = map[string]struct{}{
-			"rax": {}, "rbx": {}, "rcx": {},
-			"rdx": {}, "rsi": {}, "rdi": {},
-			"r8": {}, "r9": {}, "r10": {}, "r11": {},
-			"r12": {}, "r13": {}, "r14": {}, "r15": {},
+		e.regBox = []string{
+			"rax", "rbx", "rcx",
+			"rdx", "rsi", "rdi",
+			"r8", "r9", "r10", "r11",
+			"r12", "r13", "r14", "r15",
 		}
 	}
 }
 
-func (e *Encoder) buildRegisterBox() map[string]string {
+func (e *Encoder) buildRegisterMap() map[string]string {
 	register := make(map[string]string, 16)
 	switch e.arch {
 	case 32:
@@ -329,13 +329,10 @@ func (e *Encoder) buildRegisterBox() map[string]string {
 
 // selectRegister is used to make sure each register will be selected once.
 func (e *Encoder) selectRegister() string {
-	n := 1 + e.rand.Intn(1+len(e.regBox))
-	var reg string
-	for i := 0; i < n; i++ {
-		for reg = range e.regBox {
-		}
-	}
-	delete(e.regBox, reg)
+	idx := e.rand.Intn(len(e.regBox))
+	reg := e.regBox[idx]
+	// remove selected register
+	e.regBox = append(e.regBox[:idx], e.regBox[idx+1:]...)
 	return reg
 }
 
