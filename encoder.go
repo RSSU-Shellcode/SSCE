@@ -2,6 +2,8 @@ package ssce
 
 import (
 	"bytes"
+	cr "crypto/rand"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math"
@@ -49,12 +51,19 @@ type Options struct {
 	EraseInst   bool
 	NoIterator  bool
 	NoGarbage   bool
+	RandSeed    int64
 }
 
 // NewEncoder is used to create a simple shellcode encoder.
 func NewEncoder(seed int64) *Encoder {
 	if seed == 0 {
-		seed = time.Now().UTC().UnixNano()
+		buf := make([]byte, 8)
+		_, err := cr.Read(buf)
+		if err == nil {
+			seed = int64(binary.LittleEndian.Uint64(buf))
+		} else {
+			seed = time.Now().UTC().UnixNano()
+		}
 	}
 	rng := rand.New(rand.NewSource(seed)) // #nosec
 	encoder := Encoder{
@@ -83,6 +92,14 @@ func (e *Encoder) Encode(shellcode []byte, arch int, opts *Options) ([]byte, err
 		_ = e.engine.Close()
 		e.engine = nil
 	}()
+	// set random seed
+	seed := opts.RandSeed
+	if seed == 0 {
+		seed = e.seed
+	}
+	e.rand.Seed(seed)
+	// update default random seed
+	e.seed = e.rand.Int63()
 	// encode the raw shellcode and add loader
 	output, err := e.addLoader(shellcode)
 	if err != nil {
