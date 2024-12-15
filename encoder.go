@@ -137,6 +137,9 @@ func (e *Encoder) Encode(shellcode []byte, arch int, opts *Options) ([]byte, err
 	output = append(output, e.randBytes(opts.NumTailInst)...)
 	// append garbage data to the output shellcode prefix
 	output = append(e.garbageInst(), output...)
+	// append the random seed to tail
+	buf := binary.BigEndian.AppendUint64(nil, uint64(seed))
+	output = append(output, buf...)
 	return output, nil
 }
 

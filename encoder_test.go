@@ -2,6 +2,7 @@ package ssce
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"runtime"
 	"testing"
@@ -215,6 +216,9 @@ func TestSpecificSeed(t *testing.T) {
 		output3, err := encoder3.Encode(shellcode, 32, opts)
 		require.NoError(t, err)
 		require.Equal(t, output1, output3)
+
+		seed := binary.BigEndian.Uint64(output3[len(output3)-8:])
+		require.Equal(t, uint64(12345678), seed)
 	})
 
 	t.Run("x64", func(t *testing.T) {
@@ -247,6 +251,9 @@ func TestSpecificSeed(t *testing.T) {
 		output3, err := encoder3.Encode(shellcode, 64, opts)
 		require.NoError(t, err)
 		require.Equal(t, output1, output3)
+
+		seed := binary.BigEndian.Uint64(output3[len(output3)-8:])
+		require.Equal(t, uint64(12345678), seed)
 	})
 }
 
