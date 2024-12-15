@@ -3,7 +3,6 @@ package ssce
 import (
 	"bytes"
 	"fmt"
-	"math/rand"
 	"runtime"
 	"testing"
 	"unsafe"
@@ -185,18 +184,6 @@ func TestMinifyMode(t *testing.T) {
 }
 
 func TestSpecificSeed(t *testing.T) {
-
-	r1 := rand.New(rand.NewSource(1234))
-	buf1 := make([]byte, 32)
-	r1.Read(buf1)
-
-	r2 := rand.New(rand.NewSource(1234))
-	buf2 := make([]byte, 32)
-	r2.Read(buf2)
-
-	fmt.Println(buf1)
-	fmt.Println(buf2)
-
 	t.Run("x86", func(t *testing.T) {
 		asm := ".code32\n"
 		asm += "mov eax, dword ptr [esp+4]\n"
@@ -223,11 +210,11 @@ func TestSpecificSeed(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, output1, output2)
 
-		// encoder2 := NewEncoder(13548971)
-		// opts.RandSeed = 12345678
-		// output3, err := encoder2.Encode(shellcode, 32, opts)
-		// require.NoError(t, err)
-		// require.Equal(t, output1, output3)
+		encoder3 := NewEncoder(13548971)
+		opts.RandSeed = 12345678
+		output3, err := encoder3.Encode(shellcode, 32, opts)
+		require.NoError(t, err)
+		require.Equal(t, output1, output3)
 	})
 
 	t.Run("x64", func(t *testing.T) {
@@ -242,7 +229,24 @@ func TestSpecificSeed(t *testing.T) {
 		err = engine.Close()
 		require.NoError(t, err)
 
-		fmt.Println(shellcode)
+		opts := &Options{
+			SaveContext: true,
+			EraseInst:   true,
+		}
+
+		encoder1 := NewEncoder(12345678)
+		output1, err := encoder1.Encode(shellcode, 64, opts)
+		require.NoError(t, err)
+		encoder2 := NewEncoder(12345678)
+		output2, err := encoder2.Encode(shellcode, 64, opts)
+		require.NoError(t, err)
+		require.Equal(t, output1, output2)
+
+		encoder3 := NewEncoder(13548971)
+		opts.RandSeed = 12345678
+		output3, err := encoder3.Encode(shellcode, 64, opts)
+		require.NoError(t, err)
+		require.Equal(t, output1, output3)
 	})
 }
 
