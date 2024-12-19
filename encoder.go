@@ -52,6 +52,7 @@ type Options struct {
 	NoIterator  bool
 	NoGarbage   bool
 	RandSeed    int64
+	TrimSeed    bool
 }
 
 // NewEncoder is used to create a simple shellcode encoder.
@@ -138,8 +139,10 @@ func (e *Encoder) Encode(shellcode []byte, arch int, opts *Options) ([]byte, err
 	// append garbage data to the output shellcode prefix
 	output = append(e.garbageInst(), output...)
 	// append the random seed to tail
-	buf := binary.BigEndian.AppendUint64(nil, uint64(seed))
-	output = append(output, buf...)
+	if !opts.TrimSeed {
+		buf := binary.BigEndian.AppendUint64(nil, uint64(seed))
+		output = append(output, buf...)
+	}
 	return output, nil
 }
 
