@@ -46,13 +46,20 @@ type Encoder struct {
 type Options struct {
 	NumIterator int
 	NumTailInst int
+
 	MinifyMode  bool
 	SaveContext bool
 	EraseInst   bool
 	NoIterator  bool
 	NoGarbage   bool
-	RandSeed    int64
-	TrimSeed    bool
+
+	RandSeed int64
+	TrimSeed bool
+
+	X86MiniDecoder string
+	X64MiniDecoder string
+	X86Loader      string
+	X64Loader      string
 }
 
 // NewEncoder is used to create a simple shellcode encoder.
@@ -185,12 +192,12 @@ func (e *Encoder) addLoader(shellcode []byte) ([]byte, error) {
 	)
 	switch e.arch {
 	case 32:
-		loader = x86Loader
+		loader = e.getX86Loader()
 		stubKey = e.rand.Uint32()
 		eraserLen = len(x86Eraser) + e.rand.Intn(len(cryptoKey))
 		shellcode = encrypt32(shellcode, cryptoKey)
 	case 64:
-		loader = x64Loader
+		loader = e.getX64Loader()
 		stubKey = e.rand.Uint64()
 		eraserLen = len(x64Eraser) + e.rand.Intn(len(cryptoKey))
 		shellcode = encrypt64(shellcode, cryptoKey)
@@ -238,9 +245,9 @@ func (e *Encoder) addMiniDecoder(input []byte) ([]byte, error) {
 	var miniDecoder string
 	switch e.arch {
 	case 32:
-		miniDecoder = x86MiniDecoder
+		miniDecoder = e.getX86MiniDecoder()
 	case 64:
-		miniDecoder = x64MiniDecoder
+		miniDecoder = e.getX64MiniDecoder()
 	}
 	tpl, err := template.New("mini_decoder").Funcs(template.FuncMap{
 		"db":  toDB,
@@ -291,6 +298,34 @@ func (e *Encoder) addMiniDecoder(input []byte) ([]byte, error) {
 		return nil, err
 	}
 	return append(inst, body...), nil
+}
+
+func (e *Encoder) getX86MiniDecoder() string {
+	if e.opts.X86MiniDecoder != "" {
+		return e.opts.X86MiniDecoder
+	}
+	return defaultX86MiniDecoder
+}
+
+func (e *Encoder) getX64MiniDecoder() string {
+	if e.opts.X64MiniDecoder != "" {
+		return e.opts.X64MiniDecoder
+	}
+	return defaultX64MiniDecoder
+}
+
+func (e *Encoder) getX86Loader() string {
+	if e.opts.X86Loader != "" {
+		return e.opts.X86Loader
+	}
+	return defaultX86Loader
+}
+
+func (e *Encoder) getX64Loader() string {
+	if e.opts.X64Loader != "" {
+		return e.opts.X64Loader
+	}
+	return defaultX64Loader
 }
 
 func (e *Encoder) initRegisterBox() {
