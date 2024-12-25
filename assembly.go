@@ -12,12 +12,13 @@ var _ embed.FS
 
 // The role of the mini decoder is to eliminate the
 // instruction sequence features as much as possible.
+var (
+	//go:embed asm/mini_decoder_x86.asm
+	defaultX86MiniDecoder string
 
-//go:embed asm/mini_decoder_x86.asm
-var x86MiniDecoder string
-
-//go:embed asm/mini_decoder_x64.asm
-var x64MiniDecoder string
+	//go:embed asm/mini_decoder_x64.asm
+	defaultX64MiniDecoder string
+)
 
 type miniDecoderCtx struct {
 	Seed interface{}
@@ -42,12 +43,13 @@ type miniDecoderCtx struct {
 // The role of the shellcode loader is to execute the shellcode
 // without destroying the CPU context, and to erase the loader
 // before execution and the shellcode after execution.
+var (
+	//go:embed asm/loader_x86.asm
+	defaultX86Loader string
 
-//go:embed asm/loader_x86.asm
-var x86Loader string
-
-//go:embed asm/loader_x64.asm
-var x64Loader string
+	//go:embed asm/loader_x64.asm
+	defaultX64Loader string
+)
 
 type loaderCtx struct {
 	JumpShort      []byte
