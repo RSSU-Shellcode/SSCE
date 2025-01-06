@@ -181,7 +181,7 @@ func (e *Encoder) addLoader(shellcode []byte) ([]byte, error) {
 	prefix := e.garbageJumpShort(8, 16)
 	shellcode = append(prefix, shellcode...)
 	// append instructions to tail for prevent brute-force
-	tail := e.randBytes(64 + len(shellcode)/10)
+	tail := e.randBytes(64 + len(shellcode)/40)
 	shellcode = append(shellcode, tail...)
 	// generate crypto key for shellcode decoder
 	cryptoKey := e.randBytes(32)
