@@ -31,7 +31,7 @@ func (e *Encoder) cryptoKeyStub() []byte {
 	return e.miniXOR(e.key, e.stubKey)
 }
 
-func (e *Encoder) miniXOR(inst []byte, key interface{}) []byte {
+func (e *Encoder) miniXOR(inst []byte, key any) []byte {
 	switch e.arch {
 	case 32:
 		return e.miniXOR32(inst, key.(uint32))

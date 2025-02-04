@@ -30,7 +30,7 @@ type Encoder struct {
 	key  []byte
 
 	// stub key for xor stubs
-	stubKey interface{}
+	stubKey any
 
 	// save and restore context
 	contextSeq []int
@@ -187,7 +187,7 @@ func (e *Encoder) addLoader(shellcode []byte) ([]byte, error) {
 	cryptoKey := e.randBytes(32)
 	var (
 		loader    string
-		stubKey   interface{}
+		stubKey   any
 		eraserLen int
 	)
 	switch e.arch {

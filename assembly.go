@@ -21,8 +21,8 @@ var (
 )
 
 type miniDecoderCtx struct {
-	Seed interface{}
-	Key  interface{}
+	Seed any
+	Key  any
 
 	NumLoopStub  int32
 	NumLoopMaskA int32
@@ -56,7 +56,7 @@ type loaderCtx struct {
 	SaveContext    []byte
 	RestoreContext []byte
 
-	StubKey interface{}
+	StubKey any
 
 	DecoderStub   []byte
 	EraserStub    []byte
@@ -84,6 +84,6 @@ func toDB(b []byte) string {
 	return builder.String()
 }
 
-func toHex(v interface{}) string {
+func toHex(v any) string {
 	return fmt.Sprintf("0x%X", v)
 }
