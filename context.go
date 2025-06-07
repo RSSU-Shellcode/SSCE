@@ -1,10 +1,10 @@
 package ssce
 
 var (
-	x86SaveContext    = [][]byte{{0x60}, {0x9C}} // pushad, pushfd
-	x86RestoreContext = [][]byte{{0x61}, {0x9D}} // popad, popfd
+	saveContextX86    = [][]byte{{0x60}, {0x9C}} // pushad, pushfd
+	restoreContextX86 = [][]byte{{0x61}, {0x9D}} // popad, popfd
 
-	x64SaveContext = [][]byte{
+	saveContextX64 = [][]byte{
 		{0x50}, {0x53}, {0x51}, {0x52}, //    push rax, rbx, rcx, rdx
 		{0x56}, {0x57}, {0x55}, {0x54}, //    push rsi, rdi, rbp, rsp
 		{0x41, 0x50}, {0x41, 0x51}, //        push r8, r9
@@ -14,7 +14,7 @@ var (
 		{0x9C}, //                            pushfq
 
 	}
-	x64RestoreContext = [][]byte{
+	restoreContextX64 = [][]byte{
 		{0x58}, {0x5B}, {0x59}, {0x5A}, //    pop rax, rbx, rcx, rdx
 		{0x5E}, {0x5F}, {0x5D}, {0x5C}, //    pop rsi, rdi, rbp, rsp
 		{0x41, 0x58}, {0x41, 0x59}, //        pop r8, r9
@@ -29,9 +29,9 @@ func (e *Encoder) saveContext() []byte {
 	var save [][]byte
 	switch e.arch {
 	case 32:
-		save = x86SaveContext
+		save = saveContextX86
 	case 64:
-		save = x64SaveContext
+		save = saveContextX64
 	}
 	e.contextSeq = e.rand.Perm(len(save))
 	inst := make([]byte, 0, 256)
@@ -46,9 +46,9 @@ func (e *Encoder) restoreContext() []byte {
 	var restore [][]byte
 	switch e.arch {
 	case 32:
-		restore = x86RestoreContext
+		restore = restoreContextX86
 	case 64:
-		restore = x64RestoreContext
+		restore = restoreContextX64
 	}
 	inst := make([]byte, 0, 256)
 	for i := len(restore) - 1; i >= 0; i-- {
