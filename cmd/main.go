@@ -29,10 +29,10 @@ func init() {
 	flag.BoolVar(&opts.NoGarbage, "no-garbage", false, "no garbage, not recommend")
 	flag.Int64Var(&opts.RandSeed, "seed", 0, "specify a random seed for encoder")
 	flag.BoolVar(&opts.TrimSeed, "trim-seed", false, "trim the seed at the tail of output")
-	flag.StringVar(&opts.X86MiniDecoder, "x86-md", "", "specify the x86 mini decoder template file path")
-	flag.StringVar(&opts.X64MiniDecoder, "x64-md", "", "specify the x64 mini decoder template file path")
-	flag.StringVar(&opts.X86Loader, "x86-ldr", "", "specify the x86 loader template file path")
-	flag.StringVar(&opts.X64Loader, "x64-ldr", "", "specify the x64 loader template file path")
+	flag.StringVar(&opts.MiniDecoderX86, "md-x86", "", "specify the x86 mini decoder template file path")
+	flag.StringVar(&opts.MiniDecoderX64, "md-x64", "", "specify the x64 mini decoder template file path")
+	flag.StringVar(&opts.LoaderX86, "ldr-x86", "", "specify the x86 loader template file path")
+	flag.StringVar(&opts.LoaderX64, "ldr-x64", "", "specify the x64 loader template file path")
 	flag.BoolVar(&hexIn, "hex-in", false, "input shellcode with hex format")
 	flag.BoolVar(&hexOut, "hex-out", false, "output shellcode with hex format")
 	flag.StringVar(&in, "i", "", "set input shellcode file path")
@@ -54,10 +54,10 @@ func main() {
 		}
 	}
 
-	opts.X86MiniDecoder = loadSourceTemplate(opts.X86MiniDecoder)
-	opts.X64MiniDecoder = loadSourceTemplate(opts.X64MiniDecoder)
-	opts.X86Loader = loadSourceTemplate(opts.X86Loader)
-	opts.X64Loader = loadSourceTemplate(opts.X64Loader)
+	opts.MiniDecoderX86 = loadSourceTemplate(opts.MiniDecoderX86)
+	opts.MiniDecoderX64 = loadSourceTemplate(opts.MiniDecoderX64)
+	opts.LoaderX86 = loadSourceTemplate(opts.LoaderX86)
+	opts.LoaderX64 = loadSourceTemplate(opts.LoaderX64)
 
 	encoder := ssce.NewEncoder(0)
 	if opts.RandSeed == 0 {
