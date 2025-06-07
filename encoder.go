@@ -44,22 +44,45 @@ type Encoder struct {
 
 // Options contains options about encode shellcode.
 type Options struct {
+	// the number of the iterator
 	NumIterator int
+
+	// the size of the garbage instruction at tail
 	NumTailInst int
 
-	MinifyMode  bool
-	SaveContext bool
-	EraseInst   bool
-	NoIterator  bool
-	NoGarbage   bool
+	// only use the mini loader, not use loader
+	// for erase shellcode and more feature
+	MinifyMode bool
 
+	// save and restore context after call shellcode
+	SaveContext bool
+
+	// erase loader instruction and shellcode after call it
+	EraseInst bool
+
+	// disable iterator, not recommend
+	NoIterator bool
+
+	// disable garbage instruction, not recommend
+	NoGarbage bool
+
+	// specify a random seed for encoder
 	RandSeed int64
+
+	// trim the seed at the tail of output
 	TrimSeed bool
 
+	// specify the x86 mini decoder template file path
 	MiniDecoderX86 string
+
+	// specify the x64 mini decoder template file path
 	MiniDecoderX64 string
-	LoaderX86      string
-	LoaderX64      string
+
+	// specify the x86 loader template file path
+	LoaderX86 string
+
+	// specify the x64 loader template file path
+	LoaderX64 string
 }
 
 // NewEncoder is used to create a simple shellcode encoder.
