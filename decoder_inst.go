@@ -9,7 +9,7 @@ var _ embed.FS
 
 // extract functions from decoder.c
 var (
-	x86Decoder = []byte{
+	decoderX86 = []byte{
 		0x55,       //                                   push ebp
 		0x8B, 0xEC, //                                   mov ebp,esp
 		0x83, 0xEC, 0x0C, //                             sub esp,C
@@ -86,7 +86,7 @@ var (
 		0xC2, 0x08, 0x00, //                             ret 8
 	}
 
-	x64Decoder = []byte{
+	decoderX64 = []byte{
 		0x48, 0x8B, 0xC4, //                             mov rax,rsp
 		0x48, 0x89, 0x58, 0x08, //                       mov qword ptr ds:[rax+8],rbx
 		0x48, 0x89, 0x68, 0x10, //                       mov qword ptr ds:[rax+10],rbp
@@ -157,8 +157,8 @@ var (
 
 var (
 	//go:embed eraser/eraser_x86.bin
-	x86Eraser []byte
+	eraserX86 []byte
 
 	//go:embed eraser/eraser_x64.bin
-	x64Eraser []byte
+	eraserX64 []byte
 )

@@ -9,9 +9,9 @@ func (e *Encoder) decoderStub() []byte {
 	var decoder []byte
 	switch e.arch {
 	case 32:
-		decoder = x86Decoder
+		decoder = decoderX86
 	case 64:
-		decoder = x64Decoder
+		decoder = decoderX64
 	}
 	return e.miniXOR(decoder, e.stubKey)
 }
@@ -20,9 +20,9 @@ func (e *Encoder) eraserStub() []byte {
 	var eraser []byte
 	switch e.arch {
 	case 32:
-		eraser = x86Eraser
+		eraser = eraserX86
 	case 64:
-		eraser = x64Eraser
+		eraser = eraserX64
 	}
 	return e.miniXOR(eraser, e.stubKey)
 }
@@ -32,14 +32,14 @@ func (e *Encoder) cryptoKeyStub() []byte {
 }
 
 func (e *Encoder) miniXOR(inst []byte, key any) []byte {
+	var output []byte
 	switch e.arch {
 	case 32:
-		return e.miniXOR32(inst, key.(uint32))
+		output = e.miniXOR32(inst, key.(uint32))
 	case 64:
-		return e.miniXOR64(inst, key.(uint64))
-	default:
-		panic("invalid architecture")
+		output = e.miniXOR64(inst, key.(uint64))
 	}
+	return output
 }
 
 func (e *Encoder) miniXOR32(inst []byte, key uint32) []byte {
@@ -100,6 +100,7 @@ func (e *Encoder) xsrl(inst []byte, seed, key uint32) []byte {
 	return inst
 }
 
+// #nosec G115
 func encrypt32(data, key []byte) []byte {
 	output := make([]byte, len(data))
 	last := binary.LittleEndian.Uint32(key[:4])
@@ -124,6 +125,7 @@ func encrypt32(data, key []byte) []byte {
 	return output
 }
 
+// #nosec G115
 func encrypt64(data, key []byte) []byte {
 	output := make([]byte, len(data))
 	last := binary.LittleEndian.Uint64(key[:8])
