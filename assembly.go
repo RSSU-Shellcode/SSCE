@@ -14,10 +14,10 @@ var _ embed.FS
 // instruction sequence features as much as possible.
 var (
 	//go:embed asm/mini_decoder_x86.asm
-	defaultX86MiniDecoder string
+	defaultMiniDecoderX86 string
 
 	//go:embed asm/mini_decoder_x64.asm
-	defaultX64MiniDecoder string
+	defaultMiniDecoderX64 string
 )
 
 type miniDecoderCtx struct {
@@ -45,10 +45,10 @@ type miniDecoderCtx struct {
 // before execution and the shellcode after execution.
 var (
 	//go:embed asm/loader_x86.asm
-	defaultX86Loader string
+	defaultLoaderX86 string
 
 	//go:embed asm/loader_x64.asm
-	defaultX64Loader string
+	defaultLoaderX64 string
 )
 
 type loaderCtx struct {
