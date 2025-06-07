@@ -56,10 +56,10 @@ type Options struct {
 	RandSeed int64
 	TrimSeed bool
 
-	X86MiniDecoder string
-	X64MiniDecoder string
-	X86Loader      string
-	X64Loader      string
+	MiniDecoderX86 string
+	MiniDecoderX64 string
+	LoaderX86      string
+	LoaderX64      string
 }
 
 // NewEncoder is used to create a simple shellcode encoder.
@@ -68,7 +68,7 @@ func NewEncoder(seed int64) *Encoder {
 		buf := make([]byte, 8)
 		_, err := cr.Read(buf)
 		if err == nil {
-			seed = int64(binary.LittleEndian.Uint64(buf))
+			seed = int64(binary.LittleEndian.Uint64(buf)) // #nosec G115
 		} else {
 			seed = time.Now().UTC().UnixNano()
 		}
@@ -147,7 +147,7 @@ func (e *Encoder) Encode(shellcode []byte, arch int, opts *Options) ([]byte, err
 	output = append(e.garbageInst(), output...)
 	// append the random seed to tail
 	if !opts.TrimSeed {
-		buf := binary.BigEndian.AppendUint64(nil, uint64(seed))
+		buf := binary.BigEndian.AppendUint64(nil, uint64(seed)) // #nosec G115
 		output = append(output, buf...)
 	}
 	return output, nil
@@ -192,14 +192,14 @@ func (e *Encoder) addLoader(shellcode []byte) ([]byte, error) {
 	)
 	switch e.arch {
 	case 32:
-		loader = e.getX86Loader()
+		loader = e.getLoaderX86()
 		stubKey = e.rand.Uint32()
-		eraserLen = len(x86Eraser) + e.rand.Intn(len(cryptoKey))
+		eraserLen = len(eraserX86) + e.rand.Intn(len(cryptoKey))
 		shellcode = encrypt32(shellcode, cryptoKey)
 	case 64:
-		loader = e.getX64Loader()
+		loader = e.getLoaderX64()
 		stubKey = e.rand.Uint64()
-		eraserLen = len(x64Eraser) + e.rand.Intn(len(cryptoKey))
+		eraserLen = len(eraserX64) + e.rand.Intn(len(cryptoKey))
 		shellcode = encrypt64(shellcode, cryptoKey)
 	}
 	e.key = cryptoKey
@@ -245,9 +245,9 @@ func (e *Encoder) addMiniDecoder(input []byte) ([]byte, error) {
 	var miniDecoder string
 	switch e.arch {
 	case 32:
-		miniDecoder = e.getX86MiniDecoder()
+		miniDecoder = e.getMiniDecoderX86()
 	case 64:
-		miniDecoder = e.getX64MiniDecoder()
+		miniDecoder = e.getMiniDecoderX64()
 	}
 	tpl, err := template.New("mini_decoder").Funcs(template.FuncMap{
 		"db":  toDB,
@@ -264,7 +264,7 @@ func (e *Encoder) addMiniDecoder(input []byte) ([]byte, error) {
 	body := e.xsrl(input, seed, key)
 	numLoopMaskA := e.rand.Int31()
 	numLoopMaskB := e.rand.Int31()
-	numLoopStub := int32(len(body)/4) ^ numLoopMaskA ^ numLoopMaskB
+	numLoopStub := int32(len(body)/4) ^ numLoopMaskA ^ numLoopMaskB // #nosec G115
 	offsetT := e.rand.Int31n(math.MaxInt32/4 - 4096)
 	offsetA := e.rand.Int31n(math.MaxInt32/4 - 8192)
 	offsetS := offsetT + offsetA
@@ -300,32 +300,32 @@ func (e *Encoder) addMiniDecoder(input []byte) ([]byte, error) {
 	return append(inst, body...), nil
 }
 
-func (e *Encoder) getX86MiniDecoder() string {
-	if e.opts.X86MiniDecoder != "" {
-		return e.opts.X86MiniDecoder
+func (e *Encoder) getMiniDecoderX86() string {
+	if e.opts.MiniDecoderX86 != "" {
+		return e.opts.MiniDecoderX86
 	}
-	return defaultX86MiniDecoder
+	return defaultMiniDecoderX86
 }
 
-func (e *Encoder) getX64MiniDecoder() string {
-	if e.opts.X64MiniDecoder != "" {
-		return e.opts.X64MiniDecoder
+func (e *Encoder) getMiniDecoderX64() string {
+	if e.opts.MiniDecoderX64 != "" {
+		return e.opts.MiniDecoderX64
 	}
-	return defaultX64MiniDecoder
+	return defaultMiniDecoderX64
 }
 
-func (e *Encoder) getX86Loader() string {
-	if e.opts.X86Loader != "" {
-		return e.opts.X86Loader
+func (e *Encoder) getLoaderX86() string {
+	if e.opts.LoaderX86 != "" {
+		return e.opts.LoaderX86
 	}
-	return defaultX86Loader
+	return defaultLoaderX86
 }
 
-func (e *Encoder) getX64Loader() string {
-	if e.opts.X64Loader != "" {
-		return e.opts.X64Loader
+func (e *Encoder) getLoaderX64() string {
+	if e.opts.LoaderX64 != "" {
+		return e.opts.LoaderX64
 	}
-	return defaultX64Loader
+	return defaultLoaderX64
 }
 
 func (e *Encoder) initRegisterBox() {
