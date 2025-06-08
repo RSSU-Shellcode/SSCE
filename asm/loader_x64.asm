@@ -2,7 +2,6 @@
 
 entry:
   // save context and prepare the environment
-  {{db .JumpShort}}                            // random jump short
   {{db .SaveContext}}                          // save GP registers
   push rbx                                     // store rbx for save entry address
   push rbp                                     // store rbp for save stack address

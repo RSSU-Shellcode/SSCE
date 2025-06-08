@@ -2,7 +2,6 @@
 
 entry:
   // save context and prepare the environment
-  {{db .JumpShort}}                            // random jump short
   push ebx                                     // store ebx for save entry address
   push ebp                                     // store ebp for save stack address
   push esi                                     // store rsi for save the last argument
