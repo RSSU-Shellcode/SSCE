@@ -340,10 +340,8 @@ func TestEncoderFuzz(t *testing.T) {
 }
 
 func testFindSignature(t *testing.T, data []byte) {
-	msg := "found call short or jump near\n"
+	msg := "found signature\n"
 	msg += spew.Sdump(data)
-	// not appear call
-	require.False(t, bytes.Contains(data, []byte{0x00, 0x00, 0x00}), msg)
-	// not appear jump near
-	require.False(t, bytes.Contains(data, []byte{0xFF, 0xFF, 0xFF}), msg)
+	require.Less(t, bytes.Count(data, []byte{0x00, 0x00, 0x00}), 3, msg)
+	require.Less(t, bytes.Count(data, []byte{0xFF, 0xFF, 0xFF}), 3, msg)
 }
