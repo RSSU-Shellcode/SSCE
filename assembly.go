@@ -52,7 +52,6 @@ var (
 )
 
 type loaderCtx struct {
-	JumpShort      []byte
 	SaveContext    []byte
 	RestoreContext []byte
 
