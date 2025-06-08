@@ -349,6 +349,12 @@ func (e *Encoder) getLoaderX64() string {
 	return defaultLoaderX64
 }
 
+func (e *Encoder) randBytes(n int) []byte {
+	buf := make([]byte, n)
+	_, _ = e.rand.Read(buf)
+	return buf
+}
+
 func (e *Encoder) initRegisterBox() {
 	switch e.arch {
 	case 32:
