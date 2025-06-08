@@ -200,9 +200,8 @@ func (e *Encoder) addLoader(shellcode []byte) ([]byte, error) {
 	if e.opts.MinifyMode {
 		return shellcode, nil
 	}
-	// append jump short for "IV" about encoder
-	prefix := e.garbageJumpShort(8, 16)
-	shellcode = append(prefix, shellcode...)
+	// append instructions for "IV" about encoder
+	shellcode = append(e.garbageInst(), shellcode...)
 	// append instructions to tail for prevent brute-force
 	tail := e.randBytes(64 + len(shellcode)/40)
 	shellcode = append(shellcode, tail...)
@@ -237,7 +236,6 @@ func (e *Encoder) addLoader(shellcode []byte) ([]byte, error) {
 		return nil, fmt.Errorf("invalid assembly source template: %s", err)
 	}
 	ctx := loaderCtx{
-		JumpShort:      e.garbageJumpShort(16, 64),
 		StubKey:        stubKey,
 		DecoderStub:    e.decoderStub(),
 		EraserStub:     e.eraserStub(),
