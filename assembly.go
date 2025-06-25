@@ -13,10 +13,10 @@ var _ embed.FS
 // The role of the mini decoder is to eliminate the
 // instruction sequence features as much as possible.
 var (
-	//go:embed asm/mini_decoder_x86.asm
+	//go:embed encoder/mini_decoder_x86.asm
 	defaultMiniDecoderX86 string
 
-	//go:embed asm/mini_decoder_x64.asm
+	//go:embed encoder/mini_decoder_x64.asm
 	defaultMiniDecoderX64 string
 )
 
@@ -44,10 +44,10 @@ type miniDecoderCtx struct {
 // without destroying the CPU context, and to erase the loader
 // before execution and the shellcode after execution.
 var (
-	//go:embed asm/loader_x86.asm
+	//go:embed encoder/loader_x86.asm
 	defaultLoaderX86 string
 
-	//go:embed asm/loader_x64.asm
+	//go:embed encoder/loader_x64.asm
 	defaultLoaderX64 string
 )
 
