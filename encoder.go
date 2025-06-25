@@ -16,6 +16,20 @@ import (
 	"github.com/For-ACGN/go-keystone"
 )
 
+var (
+	registerX86 = []string{
+		"eax", "ebx", "ecx",
+		"edx", "esi", "edi",
+	}
+
+	registerX64 = []string{
+		"rax", "rbx", "rcx",
+		"rdx", "rsi", "rdi",
+		"r8", "r9", "r10", "r11",
+		"r12", "r13", "r14", "r15",
+	}
+)
+
 // Encoder is a simple shellcode encoder.
 type Encoder struct {
 	seed int64
@@ -72,17 +86,23 @@ type Options struct {
 	// trim the seed at the tail of output
 	TrimSeed bool
 
-	// specify the x86 mini decoder template file path
+	// specify the x86 mini decoder template
 	MiniDecoderX86 string
 
-	// specify the x64 mini decoder template file path
+	// specify the x64 mini decoder template
 	MiniDecoderX64 string
 
-	// specify the x86 loader template file path
+	// specify the x86 loader template
 	LoaderX86 string
 
-	// specify the x64 loader template file path
+	// specify the x64 loader template
 	LoaderX64 string
+
+	// specify the x86 junk code templates
+	JunkCodeX86 []string
+
+	// specify the x64 junk code templates
+	JunkCodeX64 []string
 }
 
 // NewEncoder is used to create a simple shellcode encoder.
@@ -289,7 +309,6 @@ func (e *Encoder) addMiniDecoder(input []byte) ([]byte, error) {
 	offsetT := e.rand.Int31n(math.MaxInt32/4 - 4096)
 	offsetA := e.rand.Int31n(math.MaxInt32/4 - 8192)
 	offsetS := offsetT + offsetA
-	e.initRegisterBox()
 	ctx := miniDecoderCtx{
 		Seed: seed,
 		Key:  key,
@@ -302,7 +321,7 @@ func (e *Encoder) addMiniDecoder(input []byte) ([]byte, error) {
 		OffsetA: offsetA,
 		OffsetS: offsetS,
 
-		Reg: e.buildRegisterMap(),
+		Reg: e.buildRandomRegisterMap(),
 
 		Padding: e.padding,
 	}
@@ -349,50 +368,49 @@ func (e *Encoder) getLoaderX64() string {
 	return defaultLoaderX64
 }
 
+func (e *Encoder) getJunkCodeX86() []string {
+	if len(e.opts.JunkCodeX86) > 0 {
+		return e.opts.JunkCodeX86
+	}
+	return defaultJunkCodeX86
+}
+
+func (e *Encoder) getJunkCodeX64() []string {
+	if len(e.opts.JunkCodeX64) > 0 {
+		return e.opts.JunkCodeX64
+	}
+	return defaultJunkCodeX64
+}
+
 func (e *Encoder) randBytes(n int) []byte {
 	buf := make([]byte, n)
 	_, _ = e.rand.Read(buf)
 	return buf
 }
 
-func (e *Encoder) initRegisterBox() {
-	switch e.arch {
-	case 32:
-		e.regBox = []string{
-			"eax", "ebx", "ecx",
-			"edx", "esi", "edi",
-		}
-	case 64:
-		e.regBox = []string{
-			"rax", "rbx", "rcx",
-			"rdx", "rsi", "rdi",
-			"r8", "r9", "r10", "r11",
-			"r12", "r13", "r14", "r15",
-		}
-	}
-}
-
-func (e *Encoder) buildRegisterMap() map[string]string {
+func (e *Encoder) buildRandomRegisterMap() map[string]string {
+	e.initRegisterBox()
 	register := make(map[string]string, 16)
 	switch e.arch {
 	case 32:
-		for _, reg := range []string{
-			"eax", "ebx", "ecx",
-			"edx", "esi", "edi",
-		} {
+		for _, reg := range registerX86 {
 			register[reg] = e.selectRegister()
 		}
 	case 64:
-		for _, reg := range []string{
-			"rax", "rbx", "rcx",
-			"rdx", "rsi", "rdi",
-			"r8", "r9", "r10", "r11",
-			"r12", "r13", "r14", "r15",
-		} {
+		for _, reg := range registerX64 {
 			register[reg] = e.selectRegister()
 		}
 	}
 	return register
+}
+
+func (e *Encoder) initRegisterBox() {
+	switch e.arch {
+	case 32:
+		e.regBox = registerX86
+	case 64:
+		e.regBox = registerX64
+	}
 }
 
 // selectRegister is used to make sure each register will be selected once.
