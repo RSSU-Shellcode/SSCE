@@ -24,11 +24,11 @@ var (
 
 func readJunkCodeTemplates(efs embed.FS) []string {
 	var templates []string
-	err := fs.WalkDir(efs, ".", func(_ string, entry fs.DirEntry, _ error) error {
+	err := fs.WalkDir(efs, ".", func(name string, entry fs.DirEntry, _ error) error {
 		if entry.IsDir() {
 			return nil
 		}
-		file, err := efs.Open(entry.Name())
+		file, err := efs.Open(name)
 		if err != nil {
 			panic(err)
 		}
@@ -55,14 +55,12 @@ func (e *Encoder) garbageInst() []byte {
 	if e.opts.NoGarbage {
 		return nil
 	}
-	switch e.rand.Intn(4) {
+	switch e.rand.Intn(3) {
 	case 0:
-		return nil
-	case 1:
 		return e.garbageJumpShort(2, 16)
-	case 2:
+	case 1:
 		return e.garbageMultiByteNOP()
-	case 3:
+	case 2:
 		return e.garbageTemplate()
 	default:
 		panic("invalid garbage instruction selection")
@@ -74,12 +72,10 @@ func (e *Encoder) garbageInstShort() []byte {
 	if e.opts.NoGarbage {
 		return nil
 	}
-	switch e.rand.Intn(3) {
+	switch e.rand.Intn(2) {
 	case 0:
-		return nil
-	case 1:
 		return e.garbageJumpShort(2, 5)
-	case 2:
+	case 1:
 		return e.garbageMultiByteNOP()
 	default:
 		panic("invalid garbage instruction selection")
