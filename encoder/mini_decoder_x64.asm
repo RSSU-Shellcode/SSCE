@@ -1,13 +1,15 @@
 .code64
 
-// NOT use R register for prevent appear
-// a lot of instruction prefix about 0x48
-
-// dr is used to get the register low 32bit
+// NOT use registers like r8, r9 for prevent
+// appear a lot of instruction prefix about 0x48
 
 // the ret and next labels are used to prevent
 // "0x00, 0x00, 0x00" and "0xFF, 0xFF, 0xFF"
 // about call or jmp instructions
+
+// dr is used to get the register low 32bit
+// igi means insert garbage instruction
+// igs means insert garbage instruction with short version
 
 // eax store the random seed
 // ebx store the crypto key
