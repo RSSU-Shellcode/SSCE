@@ -405,12 +405,16 @@ func (e *Encoder) buildRandomRegisterMap() map[string]string {
 }
 
 func (e *Encoder) initRegisterBox() {
+	var reg []string
 	switch e.arch {
 	case 32:
-		e.regBox = registerX86
+		reg = make([]string, len(registerX86))
+		copy(reg, registerX86)
 	case 64:
-		e.regBox = registerX64
+		reg = make([]string, len(registerX64))
+		copy(reg, registerX64)
 	}
+	e.regBox = reg
 }
 
 // selectRegister is used to make sure each register will be selected once.
