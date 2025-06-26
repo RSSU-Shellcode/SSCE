@@ -4,6 +4,9 @@
 // "0x00, 0x00, 0x00" and "0xFF, 0xFF, 0xFF"
 // about call or jmp instructions
 
+// igi means insert garbage instruction
+// igs means insert garbage instruction with short version
+
 // eax store the random seed
 // ebx store the crypto key
 // ecx store the loop times
