@@ -48,6 +48,19 @@ func readJunkCodeTemplates(efs embed.FS) []string {
 type junkCodeCtx struct {
 	// for replace registers
 	Reg map[string]string
+
+	// for insert random instruction pair
+	Switch map[string]bool
+
+	// for random immediate data
+	BYTE  map[string]int8
+	WORD  map[string]int16
+	DWORD map[string]int32
+	QWORD map[string]int64
+
+	// for random immediate data with [0, 32) and [0, 64)
+	Less32 map[string]int
+	Less64 map[string]int
 }
 
 // the output garbage instruction length is no limit.
@@ -123,16 +136,44 @@ func (e *Encoder) garbageTemplate() []byte {
 	if err != nil {
 		panic("invalid junk code template")
 	}
+	// initialize random data
+	switches := make(map[string]bool)
+	BYTE := make(map[string]int8)
+	WORD := make(map[string]int16)
+	DWORD := make(map[string]int32)
+	QWORD := make(map[string]int64)
+	Less32 := make(map[string]int)
+	Less64 := make(map[string]int)
+	for i := 'A'; i <= 'Z'; i++ {
+		b := e.rand.Intn(2) == 0
+		switches[string(i)] = b
+		switches[string(i+0x20)] = b
+		BYTE[string(i)] = int8(e.rand.Int31() % 128)
+		WORD[string(i)] = int16(e.rand.Int31() % 32768)
+		DWORD[string(i)] = e.rand.Int31()
+		QWORD[string(i)] = e.rand.Int63()
+		Less32[string(i)] = e.rand.Intn(32)
+		Less64[string(i)] = e.rand.Intn(64)
+	}
 	ctx := junkCodeCtx{
-		Reg: e.buildRandomRegisterMap(),
+		Reg:    e.buildRandomRegisterMap(),
+		Switch: switches,
+		BYTE:   BYTE,
+		WORD:   WORD,
+		DWORD:  DWORD,
+		QWORD:  QWORD,
+		Less32: Less32,
+		Less64: Less64,
 	}
 	buf := bytes.NewBuffer(make([]byte, 0, 512))
 	err = tpl.Execute(buf, &ctx)
 	if err != nil {
 		panic(fmt.Sprintf("failed to build junk code assembly source: %s", err))
 	}
+	src := buf.String()
+	checkASM(src)
 	// assemble junk code
-	inst, err := e.engine.Assemble(buf.String(), 0)
+	inst, err := e.engine.Assemble(src, 0)
 	if err != nil {
 		panic(fmt.Sprintf("failed to assemble junk code: %s", err))
 	}
