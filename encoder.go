@@ -125,7 +125,12 @@ func NewEncoder(seed int64) *Encoder {
 }
 
 // Encode is used to encode input shellcode to a unique shellcode.
-func (e *Encoder) Encode(shellcode []byte, arch int, opts *Options) ([]byte, error) {
+func (e *Encoder) Encode(shellcode []byte, arch int, opts *Options) (output []byte, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = errors.New(fmt.Sprint(r))
+		}
+	}()
 	if len(shellcode) == 0 {
 		return nil, errors.New("empty shellcode")
 	}
@@ -135,7 +140,7 @@ func (e *Encoder) Encode(shellcode []byte, arch int, opts *Options) ([]byte, err
 	e.arch = arch
 	e.opts = opts
 	// initialize keystone engine
-	err := e.initAssembler()
+	err = e.initAssembler()
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize assembler: %s", err)
 	}
@@ -152,7 +157,7 @@ func (e *Encoder) Encode(shellcode []byte, arch int, opts *Options) ([]byte, err
 	// update default random seed
 	e.seed = e.rand.Int63()
 	// encode the raw shellcode and add loader
-	output, err := e.addLoader(shellcode)
+	output, err = e.addLoader(shellcode)
 	if err != nil {
 		return nil, err
 	}
@@ -274,7 +279,9 @@ func (e *Encoder) addLoader(shellcode []byte) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to build assembly source: %s", err)
 	}
-	inst, err := e.engine.Assemble(buf.String(), 0)
+	src := buf.String()
+	checkASM(src)
+	inst, err := e.engine.Assemble(src, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -333,7 +340,9 @@ func (e *Encoder) addMiniDecoder(input []byte) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to build assembly source: %s", err)
 	}
-	inst, err := e.engine.Assemble(buf.String(), 0)
+	src := buf.String()
+	checkASM(src)
+	inst, err := e.engine.Assemble(src, 0)
 	if err != nil {
 		return nil, err
 	}
