@@ -86,9 +86,3 @@ func toDB(b []byte) string {
 func toHex(v any) string {
 	return fmt.Sprintf("0x%X", v)
 }
-
-func checkASM(asm string) {
-	if strings.Contains(asm, "<no value>") {
-		panic("invalid register in assembly source")
-	}
-}
