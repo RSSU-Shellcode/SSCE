@@ -214,11 +214,14 @@ func (e *Encoder) initAssembler() error {
 	if err != nil {
 		return err
 	}
-	err = e.engine.Option(keystone.OPT_SYNTAX, keystone.OPT_SYNTAX_INTEL)
-	if err != nil {
-		return err
+	return e.engine.Option(keystone.OPT_SYNTAX, keystone.OPT_SYNTAX_INTEL)
+}
+
+func (e *Encoder) assemble(src string) ([]byte, error) {
+	if strings.Contains(src, "<no value>") {
+		return nil, errors.New("invalid register in assembly source")
 	}
-	return nil
+	return e.engine.Assemble(src, 0)
 }
 
 func (e *Encoder) addLoader(shellcode []byte) ([]byte, error) {
@@ -279,9 +282,7 @@ func (e *Encoder) addLoader(shellcode []byte) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to build assembly source: %s", err)
 	}
-	src := buf.String()
-	checkASM(src)
-	inst, err := e.engine.Assemble(src, 0)
+	inst, err := e.assemble(buf.String())
 	if err != nil {
 		return nil, err
 	}
@@ -340,9 +341,7 @@ func (e *Encoder) addMiniDecoder(input []byte) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to build assembly source: %s", err)
 	}
-	src := buf.String()
-	checkASM(src)
-	inst, err := e.engine.Assemble(src, 0)
+	inst, err := e.assemble(buf.String())
 	if err != nil {
 		return nil, err
 	}
