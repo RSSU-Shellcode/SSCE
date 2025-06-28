@@ -170,10 +170,8 @@ func (e *Encoder) garbageTemplate() []byte {
 	if err != nil {
 		panic(fmt.Sprintf("failed to build junk code assembly source: %s", err))
 	}
-	src := buf.String()
-	checkASM(src)
 	// assemble junk code
-	inst, err := e.engine.Assemble(src, 0)
+	inst, err := e.assemble(buf.String())
 	if err != nil {
 		panic(fmt.Sprintf("failed to assemble junk code: %s", err))
 	}
