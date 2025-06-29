@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/RSSU-Shellcode/SSCE"
 )
@@ -12,6 +13,8 @@ import (
 var (
 	arch   int
 	opts   ssce.Options
+	jcx86  string
+	jcx64  string
 	hexIn  bool
 	hexOut bool
 	in     string
@@ -22,17 +25,19 @@ func init() {
 	flag.IntVar(&arch, "arch", 64, "set the architecture")
 	flag.IntVar(&opts.NumIterator, "iter", 0, "set the number of the iterator")
 	flag.IntVar(&opts.NumTailInst, "tail", 0, "set the number of the garbage inst at tail")
-	flag.BoolVar(&opts.MinifyMode, "minify", false, "use minify mode, not recommend")
+	flag.BoolVar(&opts.MinifyMode, "minify", false, "use minify mode, it is not recommend")
 	flag.BoolVar(&opts.SaveContext, "safe", false, "save and restore context after call shellcode")
 	flag.BoolVar(&opts.EraseInst, "erase", false, "erase shellcode after call it")
-	flag.BoolVar(&opts.NoIterator, "no-iter", false, "no iterator, not recommend")
-	flag.BoolVar(&opts.NoGarbage, "no-garbage", false, "no garbage, not recommend")
+	flag.BoolVar(&opts.NoIterator, "no-iter", false, "no iterator, it is not recommend")
+	flag.BoolVar(&opts.NoGarbage, "no-garbage", false, "no garbage, it is not recommend")
 	flag.Int64Var(&opts.RandSeed, "seed", 0, "specify a random seed for encoder")
 	flag.BoolVar(&opts.TrimSeed, "trim-seed", false, "trim the seed at the tail of output")
 	flag.StringVar(&opts.MiniDecoderX86, "md-x86", "", "specify the x86 mini decoder template file path")
 	flag.StringVar(&opts.MiniDecoderX64, "md-x64", "", "specify the x64 mini decoder template file path")
 	flag.StringVar(&opts.LoaderX86, "ldr-x86", "", "specify the x86 loader template file path")
 	flag.StringVar(&opts.LoaderX64, "ldr-x64", "", "specify the x64 loader template file path")
+	flag.StringVar(&jcx86, "junk-x86", "", "specify the x86 junk template directory path")
+	flag.StringVar(&jcx64, "junk-x64", "", "specify the x64 junk template directory path")
 	flag.BoolVar(&hexIn, "hex-in", false, "input shellcode with hex format")
 	flag.BoolVar(&hexOut, "hex-out", false, "output shellcode with hex format")
 	flag.StringVar(&in, "i", "", "set input shellcode file path")
@@ -58,6 +63,8 @@ func main() {
 	opts.MiniDecoderX64 = loadSourceTemplate(opts.MiniDecoderX64)
 	opts.LoaderX86 = loadSourceTemplate(opts.LoaderX86)
 	opts.LoaderX64 = loadSourceTemplate(opts.LoaderX64)
+	opts.JunkCodeX86 = loadJunkTemplate(jcx86)
+	opts.JunkCodeX64 = loadJunkTemplate(jcx64)
 
 	encoder := ssce.NewEncoder(0)
 	if opts.RandSeed == 0 {
@@ -92,9 +99,29 @@ func loadSourceTemplate(path string) string {
 	if path == "" {
 		return ""
 	}
+	fmt.Println("load custom template:", path)
 	asm, err := os.ReadFile(path) // #nosec
 	checkError(err)
 	return string(asm)
+}
+
+func loadJunkTemplate(dir string) []string {
+	if dir == "" {
+		return nil
+	}
+	fmt.Println("load custom template directory:", dir)
+	files, err := os.ReadDir(dir)
+	checkError(err)
+	templates := make([]string, 0, len(files))
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(dir, file.Name()))
+		checkError(err)
+		templates = append(templates, string(data))
+	}
+	return templates
 }
 
 func checkError(err error) {
