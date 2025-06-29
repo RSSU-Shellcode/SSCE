@@ -68,15 +68,21 @@ func (e *Encoder) garbageInst() []byte {
 	if e.opts.NoGarbage {
 		return nil
 	}
-	switch e.rand.Intn(3) {
+	// dynamically adjust probability
+	var junkCodes []string
+	switch e.arch {
+	case 32:
+		junkCodes = e.getJunkCodeX86()
+	case 64:
+		junkCodes = e.getJunkCodeX64()
+	}
+	switch e.rand.Intn(2 + len(junkCodes)) {
 	case 0:
 		return e.garbageJumpShort(2, 16)
 	case 1:
 		return e.garbageMultiByteNOP()
-	case 2:
-		return e.garbageTemplate()
 	default:
-		panic("invalid garbage instruction selection")
+		return e.garbageTemplate()
 	}
 }
 
