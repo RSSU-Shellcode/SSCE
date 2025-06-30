@@ -117,7 +117,7 @@ func loadJunkTemplate(dir string) []string {
 		if file.IsDir() {
 			continue
 		}
-		data, err := os.ReadFile(filepath.Join(dir, file.Name()))
+		data, err := os.ReadFile(filepath.Join(dir, file.Name())) // #nosec
 		checkError(err)
 		templates = append(templates, string(data))
 	}
