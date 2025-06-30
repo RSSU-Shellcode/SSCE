@@ -124,6 +124,7 @@ func (e *Encoder) garbageMultiByteNOP() []byte {
 	return nop
 }
 
+// #nosec G115
 func (e *Encoder) garbageTemplate() []byte {
 	var junkCodes []string
 	switch e.arch {
