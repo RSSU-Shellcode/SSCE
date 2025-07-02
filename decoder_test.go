@@ -10,7 +10,7 @@ import (
 )
 
 func TestCompressRatio(t *testing.T) {
-	t.Run("32", func(t *testing.T) {
+	t.Run("x86", func(t *testing.T) {
 		data := bytes.Repeat([]byte{0x00}, 256*1024)
 		key := make([]byte, 32)
 
@@ -33,7 +33,7 @@ func TestCompressRatio(t *testing.T) {
 		}
 	})
 
-	t.Run("64", func(t *testing.T) {
+	t.Run("x64", func(t *testing.T) {
 		data := bytes.Repeat([]byte{0x00}, 256*1024)
 		key := make([]byte, 32)
 
