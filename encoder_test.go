@@ -185,6 +185,47 @@ func TestMinifyMode(t *testing.T) {
 }
 
 func TestSpecificSeed(t *testing.T) {
+	t.Run("init", func(t *testing.T) {
+		asm := ".code32\n"
+		asm += "mov eax, dword ptr [esp+4]\n"
+		asm += "mov dword ptr [eax], 0x86\n"
+		asm += "mov eax, 0x86\n"
+		asm += "ret\n"
+		engine, err := keystone.NewEngine(keystone.ARCH_X86, keystone.MODE_32)
+		require.NoError(t, err)
+		shellcode, err := engine.Assemble(asm, 0)
+		require.NoError(t, err)
+		err = engine.Close()
+		require.NoError(t, err)
+
+		opts := &Options{
+			SaveContext: true,
+			EraseInst:   true,
+		}
+
+		encoder1 := NewEncoder()
+		output1, err := encoder1.Encode(shellcode, 32, opts)
+		require.NoError(t, err)
+
+		opts.RandSeed = encoder1.Seed()
+		encoder2 := NewEncoder()
+		output2, err := encoder2.Encode(shellcode, 32, opts)
+		require.NoError(t, err)
+		require.Equal(t, output1, output2)
+
+		output3, err := encoder1.Encode(shellcode, 32, opts)
+		require.NoError(t, err)
+		require.Equal(t, output1, output3)
+
+		seed := binary.BigEndian.Uint64(output3[len(output3)-8:])
+		require.Equal(t, uint64(opts.RandSeed), seed)
+
+		err = encoder1.Close()
+		require.NoError(t, err)
+		err = encoder2.Close()
+		require.NoError(t, err)
+	})
+
 	t.Run("x86", func(t *testing.T) {
 		asm := ".code32\n"
 		asm += "mov eax, dword ptr [esp+4]\n"
@@ -218,6 +259,11 @@ func TestSpecificSeed(t *testing.T) {
 
 		seed := binary.BigEndian.Uint64(output3[len(output3)-8:])
 		require.Equal(t, uint64(1234), seed)
+
+		err = encoder1.Close()
+		require.NoError(t, err)
+		err = encoder2.Close()
+		require.NoError(t, err)
 	})
 
 	t.Run("x64", func(t *testing.T) {
@@ -252,6 +298,11 @@ func TestSpecificSeed(t *testing.T) {
 
 		seed := binary.BigEndian.Uint64(output3[len(output3)-8:])
 		require.Equal(t, uint64(1234), seed)
+
+		err = encoder1.Close()
+		require.NoError(t, err)
+		err = encoder2.Close()
+		require.NoError(t, err)
 	})
 }
 
