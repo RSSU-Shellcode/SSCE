@@ -13,7 +13,7 @@ import (
 )
 
 func TestGarbage(t *testing.T) {
-	encoder := NewEncoder(0)
+	encoder := NewEncoder()
 	fmt.Println("seed:", encoder.Seed())
 
 	t.Run("x86", func(t *testing.T) {
@@ -106,7 +106,7 @@ func TestGarbage(t *testing.T) {
 }
 
 func TestGarbageJumpShort(t *testing.T) {
-	encoder := NewEncoder(0)
+	encoder := NewEncoder()
 	encoder.opts = new(Options)
 
 	t.Run("x86", func(t *testing.T) {
@@ -133,7 +133,7 @@ func TestGarbageJumpShort(t *testing.T) {
 
 func TestGarbageTemplate(t *testing.T) {
 	t.Run("x86", func(t *testing.T) {
-		encoder := NewEncoder(0)
+		encoder := NewEncoder()
 		encoder.arch = 32
 		encoder.opts = new(Options)
 		err := encoder.initAssembler()
@@ -149,7 +149,7 @@ func TestGarbageTemplate(t *testing.T) {
 	})
 
 	t.Run("x64", func(t *testing.T) {
-		encoder := NewEncoder(0)
+		encoder := NewEncoder()
 		encoder.arch = 64
 		encoder.opts = new(Options)
 		err := encoder.initAssembler()

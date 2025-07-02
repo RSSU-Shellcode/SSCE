@@ -9,7 +9,7 @@ import (
 
 func TestSaveContext(t *testing.T) {
 	t.Run("x86", func(t *testing.T) {
-		encoder := NewEncoder(0)
+		encoder := NewEncoder()
 		encoder.arch = 32
 		encoder.opts = new(Options)
 		err := encoder.initAssembler()
@@ -23,7 +23,7 @@ func TestSaveContext(t *testing.T) {
 	})
 
 	t.Run("x64", func(t *testing.T) {
-		encoder := NewEncoder(0)
+		encoder := NewEncoder()
 		encoder.arch = 64
 		encoder.opts = new(Options)
 		err := encoder.initAssembler()
@@ -39,7 +39,7 @@ func TestSaveContext(t *testing.T) {
 
 func TestRestoreContext(t *testing.T) {
 	t.Run("x86", func(t *testing.T) {
-		encoder := NewEncoder(0)
+		encoder := NewEncoder()
 		encoder.arch = 32
 		encoder.opts = new(Options)
 		err := encoder.initAssembler()
@@ -55,7 +55,7 @@ func TestRestoreContext(t *testing.T) {
 	})
 
 	t.Run("x64", func(t *testing.T) {
-		encoder := NewEncoder(0)
+		encoder := NewEncoder()
 		encoder.arch = 64
 		encoder.opts = new(Options)
 		err := encoder.initAssembler()
