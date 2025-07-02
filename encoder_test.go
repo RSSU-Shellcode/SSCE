@@ -14,7 +14,7 @@ import (
 )
 
 func TestEncoder(t *testing.T) {
-	encoder := NewEncoder(0)
+	encoder := NewEncoder()
 	fmt.Println("seed:", encoder.Seed())
 
 	t.Run("x86", func(t *testing.T) {
@@ -107,7 +107,7 @@ func TestEncoder(t *testing.T) {
 }
 
 func TestMinifyMode(t *testing.T) {
-	encoder := NewEncoder(0)
+	encoder := NewEncoder()
 	fmt.Println("seed:", encoder.Seed())
 
 	t.Run("x86", func(t *testing.T) {
@@ -201,24 +201,23 @@ func TestSpecificSeed(t *testing.T) {
 		opts := &Options{
 			SaveContext: true,
 			EraseInst:   true,
+			RandSeed:    1234,
 		}
 
-		encoder1 := NewEncoder(12345678)
+		encoder1 := NewEncoder()
 		output1, err := encoder1.Encode(shellcode, 32, opts)
 		require.NoError(t, err)
-		encoder2 := NewEncoder(12345678)
+		encoder2 := NewEncoder()
 		output2, err := encoder2.Encode(shellcode, 32, opts)
 		require.NoError(t, err)
 		require.Equal(t, output1, output2)
 
-		encoder3 := NewEncoder(13548971)
-		opts.RandSeed = 12345678
-		output3, err := encoder3.Encode(shellcode, 32, opts)
+		output3, err := encoder1.Encode(shellcode, 32, opts)
 		require.NoError(t, err)
 		require.Equal(t, output1, output3)
 
 		seed := binary.BigEndian.Uint64(output3[len(output3)-8:])
-		require.Equal(t, uint64(12345678), seed)
+		require.Equal(t, uint64(1234), seed)
 	})
 
 	t.Run("x64", func(t *testing.T) {
@@ -236,29 +235,28 @@ func TestSpecificSeed(t *testing.T) {
 		opts := &Options{
 			SaveContext: true,
 			EraseInst:   true,
+			RandSeed:    1234,
 		}
 
-		encoder1 := NewEncoder(12345678)
+		encoder1 := NewEncoder()
 		output1, err := encoder1.Encode(shellcode, 64, opts)
 		require.NoError(t, err)
-		encoder2 := NewEncoder(12345678)
+		encoder2 := NewEncoder()
 		output2, err := encoder2.Encode(shellcode, 64, opts)
 		require.NoError(t, err)
 		require.Equal(t, output1, output2)
 
-		encoder3 := NewEncoder(13548971)
-		opts.RandSeed = 12345678
-		output3, err := encoder3.Encode(shellcode, 64, opts)
+		output3, err := encoder1.Encode(shellcode, 64, opts)
 		require.NoError(t, err)
 		require.Equal(t, output1, output3)
 
 		seed := binary.BigEndian.Uint64(output3[len(output3)-8:])
-		require.Equal(t, uint64(12345678), seed)
+		require.Equal(t, uint64(1234), seed)
 	})
 }
 
 func TestEncoderFuzz(t *testing.T) {
-	encoder := NewEncoder(0)
+	encoder := NewEncoder()
 	fmt.Println("seed:", encoder.Seed())
 
 	t.Run("x86", func(t *testing.T) {
