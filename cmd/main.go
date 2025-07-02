@@ -66,10 +66,12 @@ func main() {
 	opts.JunkCodeX86 = loadJunkTemplate(jcx86)
 	opts.JunkCodeX64 = loadJunkTemplate(jcx64)
 
-	encoder := ssce.NewEncoder(0)
-	if opts.RandSeed == 0 {
-		fmt.Println("random seed:", encoder.Seed())
+	encoder := ssce.NewEncoder()
+	seed := opts.RandSeed
+	if seed == 0 {
+		seed = encoder.Seed()
 	}
+	fmt.Println("random seed:", seed)
 
 	shellcode, err := os.ReadFile(in) // #nosec
 	checkError(err)
