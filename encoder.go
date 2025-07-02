@@ -106,19 +106,18 @@ type Options struct {
 }
 
 // NewEncoder is used to create a simple shellcode encoder.
-func NewEncoder(seed int64) *Encoder {
-	if seed == 0 {
-		buf := make([]byte, 8)
-		_, err := cr.Read(buf)
-		if err == nil {
-			seed = int64(binary.LittleEndian.Uint64(buf)) // #nosec G115
-		} else {
-			seed = time.Now().UTC().UnixNano()
-		}
+func NewEncoder() *Encoder {
+	var seed int64
+	buf := make([]byte, 8)
+	_, err := cr.Read(buf)
+	if err == nil {
+		seed = int64(binary.LittleEndian.Uint64(buf)) // #nosec G115
+	} else {
+		seed = time.Now().UTC().UnixNano()
 	}
 	rng := rand.New(rand.NewSource(seed)) // #nosec
 	encoder := Encoder{
-		seed: seed,
+		seed: rng.Int63(),
 		rand: rng,
 	}
 	return &encoder
@@ -151,11 +150,11 @@ func (e *Encoder) Encode(shellcode []byte, arch int, opts *Options) (output []by
 	// set random seed
 	seed := opts.RandSeed
 	if seed == 0 {
-		seed = e.seed
+		seed = e.rand.Int63()
 	}
 	e.rand.Seed(seed)
-	// update default random seed
-	e.seed = e.rand.Int63()
+	// record the last seed
+	e.seed = seed
 	// encode the raw shellcode and add loader
 	output, err = e.addLoader(shellcode)
 	if err != nil {
@@ -208,8 +207,6 @@ func (e *Encoder) initAssembler() error {
 		e.engine, err = keystone.NewEngine(keystone.ARCH_X86, keystone.MODE_32)
 	case 64:
 		e.engine, err = keystone.NewEngine(keystone.ARCH_X86, keystone.MODE_64)
-	default:
-		return fmt.Errorf("invalid architecture: %d", e.arch)
 	}
 	if err != nil {
 		return err
