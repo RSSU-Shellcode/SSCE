@@ -138,7 +138,7 @@ func (e *Encoder) garbageTemplate() []byte {
 	junkCode := junkCodes[idx]
 	// process assembly source
 	tpl, err := template.New("junk_code").Funcs(template.FuncMap{
-		"dr": e.registerDWORD,
+		"dr": toRegDWORD,
 	}).Parse(junkCode)
 	if err != nil {
 		panic("invalid junk code template")

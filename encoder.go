@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
-	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -298,7 +297,7 @@ func (e *Encoder) addMiniDecoder(input []byte) ([]byte, error) {
 	tpl, err := template.New("mini_decoder").Funcs(template.FuncMap{
 		"db":  toDB,
 		"hex": toHex,
-		"dr":  e.registerDWORD,
+		"dr":  toRegDWORD,
 		"igi": e.insertGarbageInst,
 		"igs": e.insertGarbageInstShort,
 	}).Parse(miniDecoder)
@@ -429,15 +428,6 @@ func (e *Encoder) selectRegister() string {
 	// remove selected register
 	e.regBox = append(e.regBox[:idx], e.regBox[idx+1:]...)
 	return reg
-}
-
-// convert r8 -> r8d, rax -> eax
-func (e *Encoder) registerDWORD(reg string) string {
-	_, err := strconv.Atoi(reg[1:])
-	if err == nil {
-		return reg + "d"
-	}
-	return strings.ReplaceAll(reg, "r", "e")
 }
 
 func (e *Encoder) insertGarbageInst() string {
