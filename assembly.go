@@ -4,6 +4,7 @@ import (
 	"embed"
 	"encoding/hex"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -85,4 +86,13 @@ func toDB(b []byte) string {
 
 func toHex(v any) string {
 	return fmt.Sprintf("0x%X", v)
+}
+
+// convert r8 -> r8d, rax -> eax
+func toRegDWORD(reg string) string {
+	_, err := strconv.Atoi(reg[1:])
+	if err == nil {
+		return reg + "d"
+	}
+	return strings.ReplaceAll(reg, "r", "e")
 }
