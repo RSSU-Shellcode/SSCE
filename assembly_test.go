@@ -25,3 +25,29 @@ func TestToHex(t *testing.T) {
 	output := toHex(15)
 	require.Equal(t, "0xF", output)
 }
+
+func TestToRegDWORD(t *testing.T) {
+	for _, item := range []*struct {
+		input  string
+		output string
+	}{
+		{"rax", "eax"},
+		{"rbx", "ebx"},
+		{"rcx", "ecx"},
+		{"rdx", "edx"},
+		{"rdi", "edi"},
+		{"rsi", "esi"},
+		{"rsp", "esp"},
+		{"r8", "r8d"},
+		{"r9", "r9d"},
+		{"r10", "r10d"},
+		{"r11", "r11d"},
+		{"r12", "r12d"},
+		{"r13", "r13d"},
+		{"r14", "r14d"},
+		{"r15", "r15d"},
+	} {
+		output := toRegDWORD(item.input)
+		require.Equal(t, item.output, output)
+	}
+}
