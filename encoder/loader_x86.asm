@@ -80,8 +80,7 @@ entry:
   pop eax                            {{igi}}
 
   fxrstor [esp]                      {{igi}}   // restore FP registers
-  add esp, 0x200                     {{igi}}   // reserve stack
-  mov esp, ebp                       {{igi}}   // restore stack address
+  mov esp, ebp                       {{igi}}   // restore stack
   {{db .RestoreContext}}                       // restore GP registers
   pop esi                            {{igi}}   // restore esi
   pop ebp                            {{igi}}   // restore ebp

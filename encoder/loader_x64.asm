@@ -77,8 +77,7 @@ entry:
   pop rax                            {{igi}}
 
   fxrstor [rsp]                      {{igi}}   // restore FP registers
-  add rsp, 0x200                     {{igi}}   // reserve stack
-  mov rsp, rbp                       {{igi}}   // restore stack address
+  mov rsp, rbp                       {{igi}}   // restore stack
   pop rbp                            {{igi}}   // restore rbp
   pop rbx                            {{igi}}   // restore rbx
   {{db .RestoreContext}}                       // restore GP registers
