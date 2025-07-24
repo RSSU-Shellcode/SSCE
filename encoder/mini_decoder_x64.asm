@@ -11,12 +11,12 @@
 // igi means insert garbage instruction
 // igs means insert garbage instruction with short version
 
-// eax store the random seed
-// ebx store the crypto key
-// ecx store the loop times
-// edx store the xor shift median
+// rax store the random seed
+// rbx store the crypto key
+// rcx store the loop times
+// rdx store the xor shift median
 // rsi store the body address
-// edi store the current value
+// rdi store the current value
 
 header:
   // save context
