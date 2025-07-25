@@ -51,8 +51,8 @@ func (e *Encoder) miniXOR32(inst []byte, key uint32) []byte {
 	}
 	inst = append(inst, e.randBytes(numPad)...)
 	for i := 0; i < len(inst); i += 4 {
-		val := binary.LittleEndian.Uint32(inst[i:]) ^ key
-		binary.LittleEndian.PutUint32(inst[i:], val)
+		val := binary.LittleEndian.Uint32(inst[i:])
+		binary.LittleEndian.PutUint32(inst[i:], val^key)
 	}
 	return inst
 }
@@ -66,8 +66,8 @@ func (e *Encoder) miniXOR64(inst []byte, key uint64) []byte {
 	}
 	inst = append(inst, e.randBytes(numPad)...)
 	for i := 0; i < len(inst); i += 8 {
-		val := binary.LittleEndian.Uint64(inst[i:]) ^ key
-		binary.LittleEndian.PutUint64(inst[i:], val)
+		val := binary.LittleEndian.Uint64(inst[i:])
+		binary.LittleEndian.PutUint64(inst[i:], val^key)
 	}
 	return inst
 }
