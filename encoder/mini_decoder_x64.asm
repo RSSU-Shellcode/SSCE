@@ -59,8 +59,8 @@ header:
   dec {{dr .Reg.rcx}}                          {{igs}}
   jnz loop_xor                                 {{igs}}
 
-  // skip function xor shift 32
-  jmp next_1                                   {{igs}}
+  // jump to the loader or shellcode
+  jmp restore                                  {{igs}}
 
 xor_shift_32:
   mov {{dr .Reg.rdx}}, {{dr .Reg.rax}}         {{igs}}
@@ -73,8 +73,8 @@ xor_shift_32:
   shl {{dr .Reg.rdx}}, 5                       {{igs}}
   xor {{dr .Reg.rax}}, {{dr .Reg.rdx}}         {{igs}}
   jmp ret_1                                    {{igs}}
- next_1:
 
+ restore:
   // restore context
   popfq                                        {{igi}}
   pop {{.Reg.rdi}}                             {{igi}}
