@@ -52,8 +52,12 @@ header:
   dec {{.Reg.ecx}}                             {{igs}}
   jnz loop_xor                                 {{igs}}
 
-  // skip function xor shift 32
-  jmp next_1                                   {{igs}}
+  // restore context
+  popfd                                        {{igi}}
+  popad                                        {{igi}}
+
+  // jump to the padding garbage instruction
+  jmp padding                                  {{igi}}
 
 xor_shift_32:
   mov {{.Reg.edx}}, {{.Reg.eax}}               {{igs}}
@@ -66,12 +70,8 @@ xor_shift_32:
   shl {{.Reg.edx}}, 5                          {{igs}}
   xor {{.Reg.eax}}, {{.Reg.edx}}               {{igs}}
   jmp ret_1                                    {{igs}}
- next_1:
 
-  // restore context
-  popfd                                        {{igi}}
-  popad                                        {{igi}}
-
+padding:
 {{if .Padding}}
   {{igi}}  {{igi}}  {{igi}}  {{igi}}
   {{igi}}  {{igi}}  {{igi}}  {{igi}}
@@ -83,8 +83,8 @@ xor_shift_32:
   {{igi}}  {{igi}}  {{igi}}  {{igi}}
 {{end}}
 
-  // go to the shellcode body
-  jmp body                                     {{igi}}
+  // jump to the loader or shellcode
+  jmp body                                     {{igs}}
 
 {{if .Padding}}
   {{db .PadData}}
