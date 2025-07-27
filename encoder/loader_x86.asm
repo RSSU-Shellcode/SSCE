@@ -6,11 +6,7 @@ entry:
   push ebp                                     // store ebp for save stack address
   push esi                                     // store esi for save the last argument
   mov esi, [esp + 4*4]                         // save the last argument in stack
-  {{db .SaveContext}}                          // save GP registers
-  mov ebp, esp                                 // create new stack frame
-  and esp, 0xFFFFFFF0                          // ensure stack is 16 bytes aligned
-  sub esp, 0x200                               // reserve stack
-  fxsave [esp]                                 // save FP registers
+  {{db .SaveContext}}                          // save registers
 
   // calculate the entry address
   call calc_entry_addr
@@ -43,7 +39,7 @@ entry:
   // execute the shellcode
   push ebp                           {{igi}}   // store ebp for save stack address
   mov ebp, esp                       {{igi}}   // create new stack frame
-  sub esp, 0x48                      {{igi}}   // ensure stack is 16 bytes aligned
+  and esp, 0xFFFFFFF0                {{igi}}   // ensure stack is 16 bytes aligned
   push esi                           {{igi}}   // move the last argument to stack
   call shellcode_stub                {{igi}}   // call the shellcode
   mov esp, ebp                       {{igi}}   // restore stack address
@@ -79,9 +75,7 @@ entry:
   // restore the shellcode return value
   pop eax                            {{igi}}
 
-  fxrstor [esp]                      {{igi}}   // restore FP registers
-  mov esp, ebp                       {{igi}}   // restore stack
-  {{db .RestoreContext}}                       // restore GP registers
+  {{db .RestoreContext}}                       // restore registers
   pop esi                            {{igi}}   // restore esi
   pop ebp                            {{igi}}   // restore ebp
   pop ebx                            {{igi}}   // restore ebx
