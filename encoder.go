@@ -152,15 +152,16 @@ func (e *Encoder) Encode(shellcode []byte, arch int, opts *Options) (output []by
 	e.rand.Seed(seed)
 	// record the last seed
 	e.seed = seed
+	// add padding data at tail of loader
+	if !opts.MinifyMode {
+		e.padding = true
+	}
 	// encode the raw shellcode and add loader
 	output, err = e.addLoader(shellcode)
 	if err != nil {
 		return nil, err
 	}
 	// insert mini decoder at the prefix
-	if !opts.MinifyMode {
-		e.padding = true
-	}
 	output, err = e.addMiniDecoder(output)
 	if err != nil {
 		return nil, err
