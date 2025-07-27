@@ -1,5 +1,6 @@
 .code32
 
+pushfd
 push {{.Reg.eax}}
 
 {{if .Switch.A}}
@@ -25,4 +26,4 @@ rol {{.Reg.eax}}, {{.Less32.B}}
 {{end}}
 
 pop {{.Reg.eax}}
-
+popfd

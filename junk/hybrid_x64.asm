@@ -1,5 +1,6 @@
 .code64
 
+pushfq
 push {{.Reg.rax}}
 
 {{if .Switch.A}}
@@ -25,4 +26,4 @@ rol {{.Reg.rax}}, {{.Less32.B}}
 {{end}}
 
 pop {{.Reg.rax}}
-
+popfq
