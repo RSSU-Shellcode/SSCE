@@ -2,13 +2,8 @@
 
 entry:
   // save context and prepare the environment
-  {{db .SaveContext}}                          // save GP registers
-  push rbx                                     // store rbx for save entry address
-  push rbp                                     // store rbp for save stack address
-  mov rbp, rsp                                 // create new stack frame
-  and rsp, 0xFFFFFFFFFFFFFFF0                  // ensure stack is 16 bytes aligned
-  sub rsp, 0x200                               // reserve stack
-  fxsave [rsp]                                 // save FP registers
+  {{db .SaveContext}}
+  push rbx
 
   // calculate the entry address
   lea rbx, [rip + entry]
@@ -41,10 +36,19 @@ entry:
   pop rdx                            {{igi}}
   pop rcx                            {{igi}}
 
+  // ensure stack is 16 bytes aligned
+  push rbp
+  mov rbp, rsp
+  and rsp, 0xFFFFFFFFFFFFFFF0
+
   // execute the shellcode
   sub rsp, 0x80                      {{igi}}
   call shellcode_stub                {{igi}}
   add rsp, 0x80                      {{igi}}
+
+  // restore stack and rbp
+  mov rsp, rbp                       {{igi}}
+  pop rbp                            {{igi}}
 
   // save the shellcode return value
   push rax                           {{igi}}
@@ -76,12 +80,10 @@ entry:
   // restore the shellcode return value
   pop rax                            {{igi}}
 
-  fxrstor [rsp]                      {{igi}}   // restore FP registers
-  mov rsp, rbp                       {{igi}}   // restore stack
-  pop rbp                            {{igi}}   // restore rbp
-  pop rbx                            {{igi}}   // restore rbx
-  {{db .RestoreContext}}                       // restore GP registers
-  ret                                {{igi}}   // return to the caller
+  // restore context
+  pop rbx                            {{igi}}
+  {{db .RestoreContext}}
+  ret                                {{igi}}
 
 // rcx = data address, rdx = data length, r8 = key.
 // this function assumes that the data length is divisible by 8.
