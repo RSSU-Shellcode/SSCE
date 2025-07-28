@@ -48,9 +48,6 @@ type Encoder struct {
 
 	// for select random register
 	regBox []string
-
-	// for cover call short
-	padding bool
 }
 
 // Options contains options about encode shellcode.
@@ -152,10 +149,6 @@ func (e *Encoder) Encode(shellcode []byte, arch int, opts *Options) (output []by
 	e.rand.Seed(seed)
 	// record the last seed
 	e.seed = seed
-	// add padding data at tail of loader
-	if !opts.MinifyMode {
-		e.padding = true
-	}
 	// encode the raw shellcode and add loader
 	output, err = e.addLoader(shellcode)
 	if err != nil {
@@ -249,7 +242,7 @@ func (e *Encoder) addLoader(shellcode []byte) ([]byte, error) {
 	}
 	e.key = cryptoKey
 	e.stubKey = stubKey
-	// create assembly source
+	// parse loader template
 	tpl, err := template.New("loader").Funcs(template.FuncMap{
 		"db":  toDB,
 		"hex": toHex,
@@ -272,6 +265,7 @@ func (e *Encoder) addLoader(shellcode []byte) ([]byte, error) {
 		ctx.SaveContext = e.saveContext()
 		ctx.RestoreContext = e.restoreContext()
 	}
+	// build source from template and assemble it
 	buf := bytes.NewBuffer(make([]byte, 0, 4096))
 	err = tpl.Execute(buf, &ctx)
 	if err != nil {
@@ -293,6 +287,7 @@ func (e *Encoder) addMiniDecoder(input []byte) ([]byte, error) {
 	case 64:
 		miniDecoder = e.getMiniDecoderX64()
 	}
+	// parse mini decoder template
 	tpl, err := template.New("mini_decoder").Funcs(template.FuncMap{
 		"db":  toDB,
 		"hex": toHex,
@@ -325,12 +320,13 @@ func (e *Encoder) addMiniDecoder(input []byte) ([]byte, error) {
 		OffsetS: offsetS,
 
 		Reg: e.buildRandomRegisterMap(),
-
-		Padding: e.padding,
 	}
-	if ctx.Padding {
+	// add padding data at tail of mini decoder
+	if !e.opts.MinifyMode {
+		ctx.Padding = true
 		ctx.PadData = e.randBytes(8 + e.rand.Intn(48))
 	}
+	// build source from template and assemble it
 	buf := bytes.NewBuffer(make([]byte, 0, 512))
 	err = tpl.Execute(buf, &ctx)
 	if err != nil {
