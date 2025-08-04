@@ -23,7 +23,7 @@ var (
 
 func init() {
 	flag.IntVar(&arch, "arch", 64, "set the architecture")
-	flag.IntVar(&opts.NumIterator, "iter", 0, "set the number of the iterator")
+	flag.IntVar(&opts.NumIterate, "iter", 0, "set the number of iterate")
 	flag.IntVar(&opts.NumTailInst, "tail", 0, "set the number of the garbage inst at tail")
 	flag.BoolVar(&opts.MinifyMode, "minify", false, "use minify mode, it is not recommend")
 	flag.BoolVar(&opts.SaveContext, "safe", false, "save and restore context after call shellcode")
@@ -59,20 +59,6 @@ func main() {
 		}
 	}
 
-	opts.MiniDecoderX86 = loadSourceTemplate(opts.MiniDecoderX86)
-	opts.MiniDecoderX64 = loadSourceTemplate(opts.MiniDecoderX64)
-	opts.LoaderX86 = loadSourceTemplate(opts.LoaderX86)
-	opts.LoaderX64 = loadSourceTemplate(opts.LoaderX64)
-	opts.JunkCodeX86 = loadJunkTemplate(jcx86)
-	opts.JunkCodeX64 = loadJunkTemplate(jcx64)
-
-	encoder := ssce.NewEncoder()
-	seed := opts.RandSeed
-	if seed == 0 {
-		seed = encoder.Seed()
-	}
-	fmt.Println("random seed:", seed)
-
 	shellcode, err := os.ReadFile(in) // #nosec
 	checkError(err)
 	fmt.Printf("read input shellcode from \"%s\"\n", in)
@@ -82,14 +68,30 @@ func main() {
 	}
 	fmt.Println("raw shellcode size:", len(shellcode))
 
-	shellcode, err = encoder.Encode(shellcode, arch, &opts)
+	opts.MiniDecoderX86 = loadMiniDecoderTemplate(opts.MiniDecoderX86)
+	opts.MiniDecoderX64 = loadMiniDecoderTemplate(opts.MiniDecoderX64)
+	opts.LoaderX86 = loadLoaderTemplate(opts.LoaderX86)
+	opts.LoaderX64 = loadLoaderTemplate(opts.LoaderX64)
+	opts.JunkCodeX86 = loadJunkCodeTemplate(jcx86)
+	opts.JunkCodeX64 = loadJunkCodeTemplate(jcx64)
+
+	encoder := ssce.NewEncoder()
+	ctx, err := encoder.Encode(shellcode, arch, &opts)
 	checkError(err)
-	fmt.Println("encoded shellcode size:", len(shellcode))
+	fmt.Println("==============Context===============")
+	fmt.Println("output size: ", len(ctx.Output))
+	fmt.Println("random seed: ", ctx.Seed)
+	fmt.Println("num iterate: ", ctx.NumIterate)
+	fmt.Println("minify mode: ", ctx.MinifyMode)
+	fmt.Println("no garbage:  ", ctx.NoGarbage)
+	fmt.Println("save context:", ctx.SaveContext)
+	fmt.Println("erase inst:  ", ctx.EraseInst)
+	fmt.Println("====================================")
 
 	if hexOut {
-		shellcode = []byte(hex.EncodeToString(shellcode))
+		ctx.Output = []byte(hex.EncodeToString(ctx.Output))
 	}
-	err = os.WriteFile(out, shellcode, 0600)
+	err = os.WriteFile(out, ctx.Output, 0600)
 	checkError(err)
 	fmt.Printf("write output shellcode to \"%s\"\n", out)
 
@@ -97,21 +99,31 @@ func main() {
 	checkError(err)
 }
 
-func loadSourceTemplate(path string) string {
+func loadMiniDecoderTemplate(path string) string {
 	if path == "" {
 		return ""
 	}
-	fmt.Println("load custom template:", path)
+	fmt.Println("load custom mini decoder template:", path)
 	asm, err := os.ReadFile(path) // #nosec
 	checkError(err)
 	return string(asm)
 }
 
-func loadJunkTemplate(dir string) []string {
+func loadLoaderTemplate(path string) string {
+	if path == "" {
+		return ""
+	}
+	fmt.Println("load custom loader template:", path)
+	asm, err := os.ReadFile(path) // #nosec
+	checkError(err)
+	return string(asm)
+}
+
+func loadJunkCodeTemplate(dir string) []string {
 	if dir == "" {
 		return nil
 	}
-	fmt.Println("load custom template directory:", dir)
+	fmt.Println("load custom junk code template directory:", dir)
 	files, err := os.ReadDir(dir)
 	checkError(err)
 	templates := make([]string, 0, len(files))
