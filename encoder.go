@@ -51,50 +51,50 @@ type Encoder struct {
 
 // Options contains options about encode shellcode.
 type Options struct {
-	// the number of the iterator
-	NumIterator int
+	// the number of iterate.
+	NumIterate int
 
-	// the size of the garbage instruction at tail
+	// the size of the garbage instruction at tail.
 	NumTailInst int
 
 	// only use the mini loader, not use loader
-	// for erase shellcode and more feature
+	// for erase shellcode and more feature.
 	MinifyMode bool
 
-	// save and restore context after call shellcode
+	// save and restore context after call shellcode.
 	SaveContext bool
 
-	// erase loader instruction and shellcode after call it
+	// erase loader instruction and shellcode after call it.
 	EraseInst bool
 
-	// disable iterator, not recommend
+	// disable iterator, not recommend.
 	NoIterator bool
 
-	// disable garbage instruction, not recommend
+	// disable garbage instruction, not recommend.
 	NoGarbage bool
 
-	// specify a random seed for encoder
+	// specify a random seed for encoder.
 	RandSeed int64
 
-	// trim the seed at the tail of output
+	// trim the seed at the tail of output.
 	TrimSeed bool
 
-	// specify the x86 mini decoder template
+	// specify the x86 mini decoder template.
 	MiniDecoderX86 string
 
-	// specify the x64 mini decoder template
+	// specify the x64 mini decoder template.
 	MiniDecoderX64 string
 
-	// specify the x86 loader template
+	// specify the x86 loader template.
 	LoaderX86 string
 
-	// specify the x64 loader template
+	// specify the x64 loader template.
 	LoaderX64 string
 
-	// specify the x86 junk code templates
+	// specify the x86 junk code templates.
 	JunkCodeX86 []string
 
-	// specify the x64 junk code templates
+	// specify the x64 junk code templates.
 	JunkCodeX64 []string
 }
 
@@ -102,7 +102,7 @@ type Options struct {
 type Context struct {
 	Output      []byte
 	Seed        int64
-	NumIterator int
+	NumIterate  int
 	MinifyMode  bool
 	NoGarbage   bool
 	SaveContext bool
@@ -127,7 +127,7 @@ func NewEncoder() *Encoder {
 }
 
 // Encode is used to encode input shellcode to a unique shellcode.
-func (e *Encoder) Encode(shellcode []byte, arch int, opts *Options) (output []byte, err error) {
+func (e *Encoder) Encode(shellcode []byte, arch int, opts *Options) (ctx *Context, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = errors.New(fmt.Sprint(r))
@@ -157,7 +157,7 @@ func (e *Encoder) Encode(shellcode []byte, arch int, opts *Options) (output []by
 	}
 	e.rand.Seed(seed)
 	// encode the raw shellcode and add loader
-	output, err = e.addLoader(shellcode)
+	output, err := e.addLoader(shellcode)
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +167,7 @@ func (e *Encoder) Encode(shellcode []byte, arch int, opts *Options) (output []by
 		return nil, err
 	}
 	// iterate the encoding of the pre-decoder and part of the shellcode
-	numIter := opts.NumIterator
+	numIter := opts.NumIterate
 	if numIter < 1 {
 		numIter = 2 + e.rand.Intn(4)
 	}
@@ -195,7 +195,17 @@ func (e *Encoder) Encode(shellcode []byte, arch int, opts *Options) (output []by
 		buf := binary.BigEndian.AppendUint64(nil, uint64(seed)) // #nosec G115
 		output = append(output, buf...)
 	}
-	return output, nil
+	// build encode context for test and debug
+	ctx = &Context{
+		Output:      output,
+		Seed:        seed,
+		NumIterate:  numIter,
+		MinifyMode:  opts.MinifyMode,
+		NoGarbage:   opts.NoGarbage,
+		SaveContext: opts.SaveContext,
+		EraseInst:   opts.EraseInst,
+	}
+	return ctx, nil
 }
 
 func (e *Encoder) initAssembler() error {
