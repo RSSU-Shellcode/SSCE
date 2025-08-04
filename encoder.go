@@ -29,7 +29,6 @@ var (
 
 // Encoder is a simple shellcode encoder.
 type Encoder struct {
-	seed int64
 	rand *rand.Rand
 
 	// assembler
@@ -99,6 +98,17 @@ type Options struct {
 	JunkCodeX64 []string
 }
 
+// Context contains the output and context data in Encode.
+type Context struct {
+	Output      []byte
+	Seed        int64
+	NumIterator int
+	MinifyMode  bool
+	NoGarbage   bool
+	SaveContext bool
+	EraseInst   bool
+}
+
 // NewEncoder is used to create a simple shellcode encoder.
 func NewEncoder() *Encoder {
 	var seed int64
@@ -111,7 +121,6 @@ func NewEncoder() *Encoder {
 	}
 	rng := rand.New(rand.NewSource(seed)) // #nosec
 	encoder := Encoder{
-		seed: rng.Int63(),
 		rand: rng,
 	}
 	return &encoder
@@ -147,8 +156,6 @@ func (e *Encoder) Encode(shellcode []byte, arch int, opts *Options) (output []by
 		seed = e.rand.Int63()
 	}
 	e.rand.Seed(seed)
-	// record the last seed
-	e.seed = seed
 	// encode the raw shellcode and add loader
 	output, err = e.addLoader(shellcode)
 	if err != nil {
@@ -437,11 +444,6 @@ func (e *Encoder) insertGarbageInstShort() string {
 		return ""
 	}
 	return ";" + toDB(e.garbageInstShort())
-}
-
-// Seed is used to get the random seed for debug.
-func (e *Encoder) Seed() int64 {
-	return e.seed
 }
 
 // Close is used to close shellcode encoder.
