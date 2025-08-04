@@ -2,7 +2,6 @@ package ssce
 
 import (
 	"bytes"
-	"fmt"
 	"runtime"
 	"testing"
 	"unsafe"
@@ -14,7 +13,6 @@ import (
 
 func TestGarbage(t *testing.T) {
 	encoder := NewEncoder()
-	fmt.Println("seed:", encoder.Seed())
 
 	t.Run("x86", func(t *testing.T) {
 		asm := ".code32\n"
@@ -34,32 +32,32 @@ func TestGarbage(t *testing.T) {
 			NoIterator: false,
 			NoGarbage:  false,
 		}
-		shellcode, err = encoder.Encode(shellcode, 32, opts)
+		ctx, err := encoder.Encode(shellcode, 32, opts)
 		require.NoError(t, err)
+		spew.Dump(ctx)
 
-		spew.Dump(shellcode)
-		num := bytes.Count(shellcode, []byte{0x00, 0x00, 0x00})
+		num := bytes.Count(ctx.Output, []byte{0x00, 0x00, 0x00})
 		require.Less(t, num, 2)
-		num = bytes.Count(shellcode, []byte{0xFF, 0xFF, 0xFF})
+		num = bytes.Count(ctx.Output, []byte{0xFF, 0xFF, 0xFF})
 		require.Less(t, num, 1)
 
 		if runtime.GOOS != "windows" || runtime.GOARCH != "386" {
 			return
 		}
-		addr := loadShellcode(t, shellcode)
+		addr := loadShellcode(t, ctx.Output)
 		var val int
 		ret, _, _ := syscallN(addr, (uintptr)(unsafe.Pointer(&val)))
 		require.Equal(t, 0x86, int(ret))
 		require.Equal(t, 0x86, val)
 
 		// check shellcode is erased
-		sc := unsafe.Slice((*byte)(unsafe.Pointer(addr)), len(shellcode))
+		sc := unsafe.Slice((*byte)(unsafe.Pointer(addr)), len(ctx.Output))
 		require.False(t, bytes.Contains(sc, shellcode))
 
-		spew.Dump(shellcode)
-		num = bytes.Count(shellcode, []byte{0x00, 0x00, 0x00})
+		spew.Dump(sc)
+		num = bytes.Count(sc, []byte{0x00, 0x00, 0x00})
 		require.Less(t, num, 2)
-		num = bytes.Count(shellcode, []byte{0xFF, 0xFF, 0xFF})
+		num = bytes.Count(sc, []byte{0xFF, 0xFF, 0xFF})
 		require.Less(t, num, 1)
 	})
 
@@ -80,23 +78,23 @@ func TestGarbage(t *testing.T) {
 			NoIterator: false,
 			NoGarbage:  false,
 		}
-		shellcode, err = encoder.Encode(shellcode, 64, opts)
+		ctx, err := encoder.Encode(shellcode, 64, opts)
 		require.NoError(t, err)
+		spew.Dump(ctx)
 
-		testFindSignature(t, shellcode)
-		spew.Dump(shellcode)
+		testFindSignature(t, ctx.Output)
 
 		if runtime.GOOS != "windows" || runtime.GOARCH != "amd64" {
 			return
 		}
-		addr := loadShellcode(t, shellcode)
+		addr := loadShellcode(t, ctx.Output)
 		var val int
 		ret, _, _ := syscallN(addr, (uintptr)(unsafe.Pointer(&val)))
 		require.Equal(t, 0x64, int(ret))
 		require.Equal(t, 0x64, val)
 
 		// check shellcode is erased
-		sc := unsafe.Slice((*byte)(unsafe.Pointer(addr)), len(shellcode))
+		sc := unsafe.Slice((*byte)(unsafe.Pointer(addr)), len(ctx.Output))
 		require.False(t, bytes.Contains(sc, shellcode))
 		testFindSignature(t, sc)
 	})
