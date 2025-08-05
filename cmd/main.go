@@ -104,9 +104,9 @@ func loadMiniDecoderTemplate(path string) string {
 		return ""
 	}
 	fmt.Println("load custom mini decoder template:", path)
-	asm, err := os.ReadFile(path) // #nosec
+	template, err := os.ReadFile(path) // #nosec
 	checkError(err)
-	return string(asm)
+	return string(template)
 }
 
 func loadLoaderTemplate(path string) string {
@@ -114,9 +114,9 @@ func loadLoaderTemplate(path string) string {
 		return ""
 	}
 	fmt.Println("load custom loader template:", path)
-	asm, err := os.ReadFile(path) // #nosec
+	template, err := os.ReadFile(path) // #nosec
 	checkError(err)
-	return string(asm)
+	return string(template)
 }
 
 func loadJunkCodeTemplate(dir string) []string {
