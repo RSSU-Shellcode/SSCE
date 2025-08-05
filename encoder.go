@@ -119,9 +119,8 @@ func NewEncoder() *Encoder {
 	} else {
 		seed = time.Now().UTC().UnixNano()
 	}
-	rng := rand.New(rand.NewSource(seed)) // #nosec
 	encoder := Encoder{
-		rand: rng,
+		rand: rand.New(rand.NewSource(seed)), // #nosec
 	}
 	return &encoder
 }
