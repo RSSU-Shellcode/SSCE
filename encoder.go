@@ -232,6 +232,25 @@ func (e *Encoder) addLoader(shellcode []byte) ([]byte, error) {
 	if e.opts.MinifyMode {
 		return shellcode, nil
 	}
+	var loader string
+	switch e.arch {
+	case 32:
+		loader = e.getLoaderX86()
+	case 64:
+		loader = e.getLoaderX64()
+	}
+	asm, sc, err := e.buildLoader(loader, shellcode)
+	if err != nil {
+		return nil, err
+	}
+	inst, err := e.assemble(asm)
+	if err != nil {
+		return nil, err
+	}
+	return append(inst, sc...), nil
+}
+
+func (e *Encoder) buildLoader(loader string, shellcode []byte) (string, []byte, error) {
 	// append instructions for "IV" about encoder
 	shellcode = append(e.garbageInst(), shellcode...)
 	// append instructions to tail for prevent brute-force
@@ -240,18 +259,15 @@ func (e *Encoder) addLoader(shellcode []byte) ([]byte, error) {
 	// generate crypto key for shellcode decoder
 	cryptoKey := e.randBytes(32)
 	var (
-		loader    string
 		stubKey   any
 		eraserLen int
 	)
 	switch e.arch {
 	case 32:
-		loader = e.getLoaderX86()
 		stubKey = e.rand.Uint32()
 		eraserLen = len(eraserX86) + e.rand.Intn(len(cryptoKey))
 		shellcode = encrypt32(shellcode, cryptoKey)
 	case 64:
-		loader = e.getLoaderX64()
 		stubKey = e.rand.Uint64()
 		eraserLen = len(eraserX64) + e.rand.Intn(len(cryptoKey))
 		shellcode = encrypt64(shellcode, cryptoKey)
@@ -265,7 +281,7 @@ func (e *Encoder) addLoader(shellcode []byte) ([]byte, error) {
 		"igi": e.insertGarbageInst,
 	}).Parse(loader)
 	if err != nil {
-		return nil, fmt.Errorf("invalid assembly source template: %s", err)
+		return "", nil, fmt.Errorf("invalid assembly source template: %s", err)
 	}
 	ctx := loaderCtx{
 		StubKey:        stubKey,
@@ -285,14 +301,9 @@ func (e *Encoder) addLoader(shellcode []byte) ([]byte, error) {
 	buf := bytes.NewBuffer(make([]byte, 0, 4096))
 	err = tpl.Execute(buf, &ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build assembly source: %s", err)
+		return "", nil, fmt.Errorf("failed to build assembly source: %s", err)
 	}
-	inst, err := e.assemble(buf.String())
-	if err != nil {
-		return nil, err
-	}
-	inst = append(inst, shellcode...)
-	return inst, nil
+	return buf.String(), shellcode, nil
 }
 
 func (e *Encoder) addMiniDecoder(input []byte) ([]byte, error) {
@@ -303,6 +314,18 @@ func (e *Encoder) addMiniDecoder(input []byte) ([]byte, error) {
 	case 64:
 		miniDecoder = e.getMiniDecoderX64()
 	}
+	asm, body, err := e.buildMiniDecoder(miniDecoder, input)
+	if err != nil {
+		return nil, err
+	}
+	inst, err := e.assemble(asm)
+	if err != nil {
+		return nil, err
+	}
+	return append(inst, body...), nil
+}
+
+func (e *Encoder) buildMiniDecoder(decoder string, input []byte) (string, []byte, error) {
 	// parse mini decoder template
 	tpl, err := template.New("mini_decoder").Funcs(template.FuncMap{
 		"db":  toDB,
@@ -310,9 +333,9 @@ func (e *Encoder) addMiniDecoder(input []byte) ([]byte, error) {
 		"dr":  toRegDWORD,
 		"igi": e.insertGarbageInst,
 		"igs": e.insertGarbageInstShort,
-	}).Parse(miniDecoder)
+	}).Parse(decoder)
 	if err != nil {
-		return nil, fmt.Errorf("invalid assembly source template: %s", err)
+		return "", nil, fmt.Errorf("invalid assembly source template: %s", err)
 	}
 	seed := e.rand.Uint32()
 	key := e.rand.Uint32()
@@ -346,13 +369,9 @@ func (e *Encoder) addMiniDecoder(input []byte) ([]byte, error) {
 	buf := bytes.NewBuffer(make([]byte, 0, 512))
 	err = tpl.Execute(buf, &ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build assembly source: %s", err)
+		return "", nil, fmt.Errorf("failed to build assembly source: %s", err)
 	}
-	inst, err := e.assemble(buf.String())
-	if err != nil {
-		return nil, err
-	}
-	return append(inst, body...), nil
+	return buf.String(), body, nil
 }
 
 func (e *Encoder) getMiniDecoderX86() string {
