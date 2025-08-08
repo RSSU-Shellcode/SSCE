@@ -124,7 +124,6 @@ func (e *Encoder) garbageMultiByteNOP() []byte {
 	return nop
 }
 
-// #nosec G115
 func (e *Encoder) garbageTemplate() []byte {
 	var junkCodes []string
 	switch e.arch {
@@ -148,6 +147,7 @@ func (e *Encoder) garbageTemplate() []byte {
 	return inst
 }
 
+// #nosec G115
 func (e *Encoder) buildJunkCode(src string) (string, error) {
 	// process assembly source
 	tpl, err := template.New("junk_code").Funcs(template.FuncMap{
