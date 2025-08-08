@@ -135,13 +135,26 @@ func (e *Encoder) garbageTemplate() []byte {
 	}
 	// select random junk code template
 	idx := e.rand.Intn(len(junkCodes))
-	junkCode := junkCodes[idx]
+	src := junkCodes[idx]
+	asm, err := e.buildJunkCode(src)
+	if err != nil {
+		panic(err)
+	}
+	// assemble junk code
+	inst, err := e.assemble(asm)
+	if err != nil {
+		panic(fmt.Sprintf("failed to assemble junk code: %s", err))
+	}
+	return inst
+}
+
+func (e *Encoder) buildJunkCode(src string) (string, error) {
 	// process assembly source
 	tpl, err := template.New("junk_code").Funcs(template.FuncMap{
 		"dr": toRegDWORD,
-	}).Parse(junkCode)
+	}).Parse(src)
 	if err != nil {
-		panic("invalid junk code template")
+		return "", fmt.Errorf("invalid junk code template: %s", err)
 	}
 	// initialize random data
 	switches := make(map[string]bool)
@@ -175,12 +188,27 @@ func (e *Encoder) garbageTemplate() []byte {
 	buf := bytes.NewBuffer(make([]byte, 0, 512))
 	err = tpl.Execute(buf, &ctx)
 	if err != nil {
-		panic(fmt.Sprintf("failed to build junk code assembly source: %s", err))
+		return "", fmt.Errorf("failed to build junk code assembly source: %s", err)
 	}
-	// assemble junk code
-	inst, err := e.assemble(buf.String())
+	return buf.String(), nil
+}
+
+// InspectJunkCodeTemplate is used to test junk code template.
+func InspectJunkCodeTemplate(arch int, src string) (string, []byte, error) {
+	encoder := NewEncoder()
+	encoder.arch = arch
+	encoder.opts = new(Options)
+	err := encoder.initAssembler()
 	if err != nil {
-		panic(fmt.Sprintf("failed to assemble junk code: %s", err))
+		return "", nil, err
 	}
-	return inst
+	asm, err := encoder.buildJunkCode(src)
+	if err != nil {
+		return "", nil, err
+	}
+	inst, err := encoder.assemble(asm)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to assemble junk code: %s", err)
+	}
+	return asm, inst, nil
 }
