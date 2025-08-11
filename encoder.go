@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"slices"
 	"strings"
 	"text/template"
 	"time"
@@ -423,7 +424,14 @@ func (e *Encoder) randBytes(n int) []byte {
 }
 
 func (e *Encoder) buildRandomRegisterMap() map[string]string {
-	e.initRegisterBox()
+	var reg []string
+	switch e.arch {
+	case 32:
+		reg = slices.Clone(registerX86)
+	case 64:
+		reg = slices.Clone(registerX64)
+	}
+	e.regBox = reg
 	register := make(map[string]string, 16)
 	switch e.arch {
 	case 32:
@@ -436,19 +444,6 @@ func (e *Encoder) buildRandomRegisterMap() map[string]string {
 		}
 	}
 	return register
-}
-
-func (e *Encoder) initRegisterBox() {
-	var reg []string
-	switch e.arch {
-	case 32:
-		reg = make([]string, len(registerX86))
-		copy(reg, registerX86)
-	case 64:
-		reg = make([]string, len(registerX64))
-		copy(reg, registerX64)
-	}
-	e.regBox = reg
 }
 
 // selectRegister is used to make sure each register will be selected once.
