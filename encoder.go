@@ -4,6 +4,7 @@ import (
 	"bytes"
 	cr "crypto/rand"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"github.com/For-ACGN/go-keystone"
+	"golang.org/x/arch/x86/x86asm"
 )
 
 var (
@@ -467,6 +469,63 @@ func (e *Encoder) insertGarbageInstShort() string {
 		return ""
 	}
 	return ";" + toDB(e.garbageInstShort())
+}
+
+func (e *Encoder) disassembleLoader(loader []byte) [2]string {
+	bin := strings.Builder{}
+	insts := strings.Builder{}
+	for len(loader) > 0 {
+		inst, err := x86asm.Decode(loader, e.arch)
+		if err != nil {
+			panic(err)
+		}
+		b := loader[:inst.Len]
+		bin.WriteString(printAssemblyBinary(&inst, b))
+		bin.Write([]byte("\r\n"))
+		insts.WriteString(printAssemblyInstruction(&inst))
+		insts.Write([]byte("\r\n"))
+		loader = loader[inst.Len:]
+	}
+	return [2]string{bin.String(), insts.String()}
+}
+
+func printAssemblyBinary(inst *x86asm.Inst, b []byte) string {
+	var bin strings.Builder
+	switch {
+	case inst.PCRelOff != 0:
+		s1 := strings.ToUpper(hex.EncodeToString(b[:inst.PCRelOff]))
+		s2 := strings.ToUpper(hex.EncodeToString(b[inst.PCRelOff:]))
+		bin.WriteString(s1)
+		bin.WriteString(" ")
+		bin.WriteString(s2)
+	default:
+		s := strings.ToUpper(hex.EncodeToString(b))
+		bin.WriteString(s)
+	}
+	return bin.String()
+}
+
+func printAssemblyInstruction(inst *x86asm.Inst) string {
+	var buf bytes.Buffer
+	for _, p := range inst.Prefix {
+		if p == 0 {
+			break
+		}
+		if p&x86asm.PrefixImplicit != 0 {
+			continue
+		}
+		_, _ = fmt.Fprintf(&buf, "%s ", strings.ToLower(p.String()))
+	}
+	_, _ = fmt.Fprintf(&buf, "%s", strings.ToLower(inst.Op.String()))
+	sep := " "
+	for _, v := range inst.Args {
+		if v == nil {
+			break
+		}
+		_, _ = fmt.Fprintf(&buf, "%s%s", sep, strings.ToLower(v.String()))
+		sep = ", "
+	}
+	return buf.String()
 }
 
 // Close is used to close shellcode encoder.
