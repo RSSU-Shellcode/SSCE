@@ -22,6 +22,13 @@ func TestInspectMiniDecoderTemplate(t *testing.T) {
 		fmt.Println(asm)
 		spew.Dump(inst)
 	})
+
+	t.Run("invalid arch", func(t *testing.T) {
+		asm, inst, err := InspectMiniDecoderTemplate(123, "")
+		require.EqualError(t, err, "unsupported architecture: 123")
+		require.Nil(t, inst)
+		require.Zero(t, asm)
+	})
 }
 
 func TestInspectLoaderTemplate(t *testing.T) {
@@ -37,6 +44,13 @@ func TestInspectLoaderTemplate(t *testing.T) {
 		require.NoError(t, err)
 		fmt.Println(asm)
 		spew.Dump(inst)
+	})
+
+	t.Run("invalid arch", func(t *testing.T) {
+		asm, inst, err := InspectLoaderTemplate(123, "")
+		require.EqualError(t, err, "unsupported architecture: 123")
+		require.Nil(t, inst)
+		require.Zero(t, asm)
 	})
 }
 
@@ -57,5 +71,12 @@ func TestInspectJunkCodeTemplate(t *testing.T) {
 			fmt.Println(asm)
 			spew.Dump(inst)
 		}
+	})
+
+	t.Run("invalid arch", func(t *testing.T) {
+		asm, inst, err := InspectJunkCodeTemplate(123, "")
+		require.EqualError(t, err, "unsupported architecture: 123")
+		require.Nil(t, inst)
+		require.Zero(t, asm)
 	})
 }
