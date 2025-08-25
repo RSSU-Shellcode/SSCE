@@ -53,61 +53,61 @@ type Encoder struct {
 // Options contains options about encode shellcode.
 type Options struct {
 	// the number of iterate.
-	NumIterate int
+	NumIterate int `toml:"num_iterate" json:"num_iterate"`
 
 	// the size of the garbage instruction at tail.
-	NumTailInst int
+	NumTailInst int `toml:"num_tail_inst" json:"num_tail_inst"`
 
 	// only use the mini loader, not use loader
 	// for erase shellcode and more feature.
-	MinifyMode bool
+	MinifyMode bool `toml:"minify_mode" json:"minify_mode"`
 
 	// save and restore context after call shellcode.
-	SaveContext bool
+	SaveContext bool `toml:"save_context" json:"save_context"`
 
 	// erase loader instruction and shellcode after call it.
-	EraseInst bool
+	EraseInst bool `toml:"erase_inst" json:"erase_inst"`
 
 	// disable iterator, not recommend.
-	NoIterator bool
+	NoIterator bool `toml:"no_iterator" json:"no_iterator"`
 
 	// disable garbage instruction, not recommend.
-	NoGarbage bool
+	NoGarbage bool `toml:"no_garbage" json:"no_garbage"`
 
 	// specify a random seed for encoder.
-	RandSeed int64
+	RandSeed int64 `toml:"rand_seed" json:"rand_seed"`
 
 	// trim the seed at the tail of output.
-	TrimSeed bool
+	TrimSeed bool `toml:"trim_seed" json:"trim_seed"`
 
 	// specify the x86 mini decoder template.
-	MiniDecoderX86 string
+	MiniDecoderX86 string `toml:"mini_decoder_x86" json:"mini_decoder_x86"`
 
 	// specify the x64 mini decoder template.
-	MiniDecoderX64 string
+	MiniDecoderX64 string `toml:"mini_decoder_x64" json:"mini_decoder_x64"`
 
 	// specify the x86 loader template.
-	LoaderX86 string
+	LoaderX86 string `toml:"loader_x86" json:"loader_x86"`
 
 	// specify the x64 loader template.
-	LoaderX64 string
+	LoaderX64 string `toml:"loader_x64" json:"loader_x64"`
 
 	// specify the x86 junk code templates.
-	JunkCodeX86 []string
+	JunkCodeX86 []string `toml:"junk_code_x86" json:"junk_code_x86"`
 
 	// specify the x64 junk code templates.
-	JunkCodeX64 []string
+	JunkCodeX64 []string `toml:"junk_code_x64" json:"junk_code_x64"`
 }
 
 // Context contains the output and context data in Encode.
 type Context struct {
-	Output      []byte
-	Seed        int64
-	NumIterate  int
-	MinifyMode  bool
-	NoGarbage   bool
-	SaveContext bool
-	EraseInst   bool
+	Output      []byte `toml:"output"       json:"output"`
+	Seed        int64  `toml:"seed"         json:"seed"`
+	NumIterate  int    `toml:"num_iterate"  json:"num_iterate"`
+	MinifyMode  bool   `toml:"minify_mode"  json:"minify_mode"`
+	NoGarbage   bool   `toml:"no_garbage"   json:"no_garbage"`
+	SaveContext bool   `toml:"save_context" json:"save_context"`
+	EraseInst   bool   `toml:"erase_inst"   json:"erase_inst"`
 }
 
 // NewEncoder is used to create a simple shellcode encoder.
