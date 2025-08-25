@@ -6,6 +6,11 @@ import (
 
 // InspectMiniDecoderTemplate is used to test mini decoder template.
 func InspectMiniDecoderTemplate(arch int, src string) (string, []byte, error) {
+	switch arch {
+	case 32, 64:
+	default:
+		return "", nil, fmt.Errorf("unsupported architecture: %d", arch)
+	}
 	encoder := NewEncoder()
 	encoder.arch = arch
 	encoder.opts = &Options{
@@ -32,6 +37,11 @@ func InspectMiniDecoderTemplate(arch int, src string) (string, []byte, error) {
 
 // InspectLoaderTemplate is used to test loader template.
 func InspectLoaderTemplate(arch int, src string) (string, []byte, error) {
+	switch arch {
+	case 32, 64:
+	default:
+		return "", nil, fmt.Errorf("unsupported architecture: %d", arch)
+	}
 	encoder := NewEncoder()
 	encoder.arch = arch
 	encoder.opts = &Options{
@@ -58,6 +68,11 @@ func InspectLoaderTemplate(arch int, src string) (string, []byte, error) {
 
 // InspectJunkCodeTemplate is used to test junk code template.
 func InspectJunkCodeTemplate(arch int, src string) (string, []byte, error) {
+	switch arch {
+	case 32, 64:
+	default:
+		return "", nil, fmt.Errorf("unsupported architecture: %d", arch)
+	}
 	encoder := NewEncoder()
 	encoder.arch = arch
 	encoder.opts = new(Options)
